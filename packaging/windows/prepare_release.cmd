@@ -12,15 +12,27 @@ xcopy %KLOGG_WORKSPACE%\%KLOGG_BUILD_ROOT%\output\klogg.pdb %KLOGG_WORKSPACE%\re
 xcopy %KLOGG_WORKSPACE%\%KLOGG_BUILD_ROOT%\output\klogg_crashpad_handler.exe %KLOGG_WORKSPACE%\release\ /y
 xcopy %KLOGG_WORKSPACE%\%KLOGG_BUILD_ROOT%\output\klogg_minidump_dump.exe %KLOGG_WORKSPACE%\release\ /y
 
-xcopy %KLOGG_WORKSPACE%\%KLOGG_BUILD_ROOT%\msvc_19.41_cxx17_64_md_relwithdebinfo\tbb12.dll %KLOGG_WORKSPACE%\release\ /y
-xcopy %KLOGG_WORKSPACE%\%KLOGG_BUILD_ROOT%\msvc_19.41_cxx17_64_md_relwithdebinfo\tbb12.pdb %KLOGG_WORKSPACE%\release\ /y
-xcopy %KLOGG_WORKSPACE%\%KLOGG_BUILD_ROOT%\msvc_19.41_cxx17_32_md_relwithdebinfo\tbb12.dll %KLOGG_WORKSPACE%\release\ /y
-xcopy %KLOGG_WORKSPACE%\%KLOGG_BUILD_ROOT%\msvc_19.41_cxx17_32_md_relwithdebinfo\tbb12.pdb %KLOGG_WORKSPACE%\release\ /y
-
-xcopy %KLOGG_WORKSPACE%\%KLOGG_BUILD_ROOT%\msvc_19.42_cxx17_64_md_relwithdebinfo\tbb12.dll %KLOGG_WORKSPACE%\release\ /y
-xcopy %KLOGG_WORKSPACE%\%KLOGG_BUILD_ROOT%\msvc_19.42_cxx17_64_md_relwithdebinfo\tbb12.pdb %KLOGG_WORKSPACE%\release\ /y
-xcopy %KLOGG_WORKSPACE%\%KLOGG_BUILD_ROOT%\msvc_19.42_cxx17_32_md_relwithdebinfo\tbb12.dll %KLOGG_WORKSPACE%\release\ /y
-xcopy %KLOGG_WORKSPACE%\%KLOGG_BUILD_ROOT%\msvc_19.42_cxx17_32_md_relwithdebinfo\tbb12.pdb %KLOGG_WORKSPACE%\release\ /y
+set "TBB_FOUND="
+pushd "%KLOGG_WORKSPACE%\%KLOGG_BUILD_ROOT%" 2>nul
+if errorlevel 1 (
+    echo "Warning: could not locate build root '%KLOGG_BUILD_ROOT%' when looking for TBB runtime files"
+) else (
+    for /d %%D in (msvc_*_relwithdebinfo) do (
+        if exist "%%~fD\tbb12.dll" (
+            echo "Copying TBB runtime from %%~fD"
+            xcopy "%%~fD\tbb12.dll" %KLOGG_WORKSPACE%\release\ /y >nul
+            set "TBB_FOUND=1"
+        )
+        if exist "%%~fD\tbb12.pdb" (
+            xcopy "%%~fD\tbb12.pdb" %KLOGG_WORKSPACE%\release\ /y >nul
+            set "TBB_FOUND=1"
+        )
+    )
+    popd
+)
+if not defined TBB_FOUND (
+    echo "Warning: no TBB runtime files were copied"
+)
 
 xcopy %KLOGG_WORKSPACE%\%KLOGG_BUILD_ROOT%\generated\documentation.html %KLOGG_WORKSPACE%\release\ /y
 xcopy %KLOGG_WORKSPACE%\COPYING %KLOGG_WORKSPACE%\release\ /y
@@ -71,9 +83,9 @@ xcopy %QTDIR%\bin\%KLOGG_QT%Core5Compat.dll %KLOGG_LISTER_DIR%\ /y
 
 xcopy %QTDIR%\plugins\platforms\qwindows.dll %KLOGG_LISTER_DIR%\platforms\ /y
 xcopy %QTDIR%\plugins\styles\qwindowsvistastyle.dll %KLOGG_LISTER_DIR%\styles\ /y
-xcopy %QTDIR%\plugins\styles\qmodernwindowsstyle.dll %KLOGG_LISTER_DIR%\styles\ /y
+if exist %QTDIR%\plugins\styles\qmodernwindowsstyle.dll xcopy %QTDIR%\plugins\styles\qmodernwindowsstyle.dll %KLOGG_LISTER_DIR%\styles\ /y
 
-xcopy %KLOGG_WORKSPACE%\docs\total_commander_lister.md %KLOGG_LISTER_DIR%\README.md /y
+copy /y "%KLOGG_WORKSPACE%\docs\total_commander_lister.md" "%KLOGG_LISTER_DIR%\README.md" >nul
 xcopy %KLOGG_WORKSPACE%\COPYING %KLOGG_LISTER_DIR%\ /y
 xcopy %KLOGG_WORKSPACE%\NOTICE %KLOGG_LISTER_DIR%\ /y
 
@@ -82,21 +94,24 @@ xcopy %QTDIR%\plugins\platforms\qwindows.dll %KLOGG_WORKSPACE%\release\platforms
 
 md %KLOGG_WORKSPACE%\release\styles
 xcopy %QTDIR%\plugins\styles\qwindowsvistastyle.dll %KLOGG_WORKSPACE%\release\styles /y
-xcopy %QTDIR%\plugins\styles\qmodernwindowsstyle.dll %KLOGG_WORKSPACE%\release\styles /y
+if exist %QTDIR%\plugins\styles\qmodernwindowsstyle.dll xcopy %QTDIR%\plugins\styles\qmodernwindowsstyle.dll %KLOGG_WORKSPACE%\release\styles /y
 
 echo "Copying packaging files..."
-md %KLOGG_WORKSPACE%\chocolately
-xcopy %KLOGG_WORKSPACE%\packaging\windows\klogg.nuspec chocolately /y
+md %KLOGG_WORKSPACE%\chocolatey
+xcopy %KLOGG_WORKSPACE%\packaging\windows\chocolatey\klogg.nuspec %KLOGG_WORKSPACE%\chocolatey\ /y
 
-md %KLOGG_WORKSPACE%\chocolately\tools
-xcopy %KLOGG_WORKSPACE%\packaging\windows\chocolatelyInstall.ps1 chocolately\tools\ /y
+md %KLOGG_WORKSPACE%\chocolatey\tools
+xcopy %KLOGG_WORKSPACE%\packaging\windows\chocolatey\tools\chocolateyInstall.ps1 %KLOGG_WORKSPACE%\chocolatey\tools\ /y
 
 xcopy %KLOGG_WORKSPACE%\packaging\windows\klogg.nsi  /y
 xcopy %KLOGG_WORKSPACE%\packaging\windows\FileAssociation.nsh  /y
 
 echo "Making portable archive..."
 7z a -r %KLOGG_WORKSPACE%\klogg-%KLOGG_VERSION%-%KLOGG_ARCH%-%KLOGG_QT%-portable.zip @%KLOGG_WORKSPACE%\packaging\windows\7z_klogg_listfile.txt
-7z a %KLOGG_WORKSPACE%\klogg-%KLOGG_VERSION%-%KLOGG_ARCH%-%KLOGG_QT%-pdb.zip @%KLOGG_WORKSPACE%\packaging\windows\7z_pdb_listfile.txt
+set "TBB_PDB_ARGS="
+if exist %KLOGG_WORKSPACE%\release\tbb12.dll set "TBB_PDB_ARGS=%TBB_PDB_ARGS% .\release\tbb12.dll"
+if exist %KLOGG_WORKSPACE%\release\tbb12.pdb set "TBB_PDB_ARGS=%TBB_PDB_ARGS% .\release\tbb12.pdb"
+7z a %KLOGG_WORKSPACE%\klogg-%KLOGG_VERSION%-%KLOGG_ARCH%-%KLOGG_QT%-pdb.zip .\release\klogg.exe .\release\klogg.pdb .\release\klogg_portable.exe .\release\klogg_portable.pdb%TBB_PDB_ARGS%
 7z a -r %KLOGG_WORKSPACE%\klogg-totalcmd-lister-%KLOGG_VERSION%-%KLOGG_ARCH%-%KLOGG_QT%.zip %KLOGG_LISTER_DIR%\*
 
 echo "Done!"

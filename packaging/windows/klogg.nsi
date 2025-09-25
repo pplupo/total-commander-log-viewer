@@ -73,7 +73,11 @@ Section "klogg" klogg
     File release\klogg.exe
     File release\klogg_crashpad_handler.exe
     File release\klogg_minidump_dump.exe
+!ifexist "release\tbb12.dll"
     File release\tbb12.dll
+!else
+    DetailPrint "Skipping TBB runtime: release\\tbb12.dll not found"
+!endif
 
     File COPYING
     File NOTICE

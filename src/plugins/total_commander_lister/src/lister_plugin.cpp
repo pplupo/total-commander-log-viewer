@@ -191,8 +191,9 @@ __declspec( dllexport ) HWND __stdcall ListLoadW( HWND parentWin, const wchar_t*
 }
 
 __declspec( dllexport ) int __stdcall ListLoadNext( HWND parentWin, HWND pluginWin, char* fileToLoad,
-                                                    int showFlags )
+                                                  int showFlags )
 {
+    Q_UNUSED( parentWin );
     return klogg::tc::lister::loadNextFile( pluginWin, klogg::tc::lister::toQString( fileToLoad ),
                                             showFlags );
 }
@@ -200,6 +201,7 @@ __declspec( dllexport ) int __stdcall ListLoadNext( HWND parentWin, HWND pluginW
 __declspec( dllexport ) int __stdcall ListLoadNextW( HWND parentWin, HWND pluginWin, const wchar_t* fileToLoad,
                                                      int showFlags )
 {
+    Q_UNUSED( parentWin );
     return klogg::tc::lister::loadNextFile( pluginWin, klogg::tc::lister::toQString( fileToLoad ),
                                             showFlags );
 }

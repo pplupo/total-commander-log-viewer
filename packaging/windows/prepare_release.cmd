@@ -71,9 +71,9 @@ xcopy %QTDIR%\bin\%KLOGG_QT%Core5Compat.dll %KLOGG_LISTER_DIR%\ /y
 
 xcopy %QTDIR%\plugins\platforms\qwindows.dll %KLOGG_LISTER_DIR%\platforms\ /y
 xcopy %QTDIR%\plugins\styles\qwindowsvistastyle.dll %KLOGG_LISTER_DIR%\styles\ /y
-xcopy %QTDIR%\plugins\styles\qmodernwindowsstyle.dll %KLOGG_LISTER_DIR%\styles\ /y
+if exist %QTDIR%\plugins\styles\qmodernwindowsstyle.dll xcopy %QTDIR%\plugins\styles\qmodernwindowsstyle.dll %KLOGG_LISTER_DIR%\styles\ /y
 
-xcopy %KLOGG_WORKSPACE%\docs\total_commander_lister.md %KLOGG_LISTER_DIR%\README.md /y
+copy /y "%KLOGG_WORKSPACE%\docs\total_commander_lister.md" "%KLOGG_LISTER_DIR%\README.md" >nul
 xcopy %KLOGG_WORKSPACE%\COPYING %KLOGG_LISTER_DIR%\ /y
 xcopy %KLOGG_WORKSPACE%\NOTICE %KLOGG_LISTER_DIR%\ /y
 
@@ -82,14 +82,14 @@ xcopy %QTDIR%\plugins\platforms\qwindows.dll %KLOGG_WORKSPACE%\release\platforms
 
 md %KLOGG_WORKSPACE%\release\styles
 xcopy %QTDIR%\plugins\styles\qwindowsvistastyle.dll %KLOGG_WORKSPACE%\release\styles /y
-xcopy %QTDIR%\plugins\styles\qmodernwindowsstyle.dll %KLOGG_WORKSPACE%\release\styles /y
+if exist %QTDIR%\plugins\styles\qmodernwindowsstyle.dll xcopy %QTDIR%\plugins\styles\qmodernwindowsstyle.dll %KLOGG_WORKSPACE%\release\styles /y
 
 echo "Copying packaging files..."
-md %KLOGG_WORKSPACE%\chocolately
-xcopy %KLOGG_WORKSPACE%\packaging\windows\klogg.nuspec chocolately /y
+md %KLOGG_WORKSPACE%\chocolatey
+xcopy %KLOGG_WORKSPACE%\packaging\windows\chocolatey\klogg.nuspec %KLOGG_WORKSPACE%\chocolatey\ /y
 
-md %KLOGG_WORKSPACE%\chocolately\tools
-xcopy %KLOGG_WORKSPACE%\packaging\windows\chocolatelyInstall.ps1 chocolately\tools\ /y
+md %KLOGG_WORKSPACE%\chocolatey\tools
+xcopy %KLOGG_WORKSPACE%\packaging\windows\chocolatey\tools\chocolateyInstall.ps1 %KLOGG_WORKSPACE%\chocolatey\tools\ /y
 
 xcopy %KLOGG_WORKSPACE%\packaging\windows\klogg.nsi  /y
 xcopy %KLOGG_WORKSPACE%\packaging\windows\FileAssociation.nsh  /y

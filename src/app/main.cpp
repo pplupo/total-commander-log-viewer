@@ -59,14 +59,15 @@
 #include "logger.h"
 #include "mainwindow.h"
 #include "styles.h"
+#include "persistentinfo.h"
 
 #include "cli.h"
 #include "kloggapp.h"
 
 #ifdef KLOGG_PORTABLE
-const bool PersistentInfo::ForcePortable = true;
+constexpr bool kPortableMode = true;
 #else
-const bool PersistentInfo::ForcePortable = false;
+constexpr bool kPortableMode = false;
 #endif
 
 void setApplicationAttributes( bool enableQtHdpi, int scaleFactorRounding )
@@ -118,6 +119,8 @@ int main( int argc, char* argv[] )
 #ifdef KLOGG_USE_MIMALLOC
     mi_process_init();
 #endif
+
+    PersistentInfo::overridePortableMode( kPortableMode );
 
     const auto& config = Configuration::getSynced();
     setApplicationAttributes( config.enableQtHighDpi(), config.scaleFactorRounding() );

@@ -53,18 +53,47 @@
 constexpr uint8_t AppSettingsVersion = 1;
 constexpr uint8_t SessionSettingsVersion = 2;
 
-constexpr const char ApplicationSessionFile[] = "klogg";
-constexpr const char SessionSettingsFile[] = "klogg_session";
 constexpr const char PortableExtension[] = ".conf";
 
 namespace {
+
+QString& appSettingsKey()
+{
+    static QString key = QStringLiteral( "klogg" );
+    return key;
+}
+
+QString& sessionSettingsKey()
+{
+    static QString key = QStringLiteral( "klogg_session" );
+    return key;
+}
+
 QString makeSessionSettingsPath( const QString& appConfigPath )
 {
     return QFileInfo( appConfigPath )
         .absoluteDir()
-        .filePath( QString( SessionSettingsFile ) + PortableExtension );
+        .filePath( sessionSettingsKey() + PortableExtension );
 }
 } // namespace
+
+bool PersistentInfo::ForcePortable = false;
+
+void PersistentInfo::overrideApplicationKeys( const QString& appKey, const QString& sessionKey )
+{
+    if ( !appKey.isEmpty() ) {
+        appSettingsKey() = appKey;
+    }
+
+    if ( !sessionKey.isEmpty() ) {
+        sessionSettingsKey() = sessionKey;
+    }
+}
+
+void PersistentInfo::overridePortableMode( bool forcePortable )
+{
+    ForcePortable = forcePortable;
+}
 
 PersistentInfo::PersistentInfo()
 {
@@ -79,7 +108,7 @@ PersistentInfo::PersistentInfo()
     }
 
     const auto portableConfigPath
-        = executablePath + QDir::separator() + ApplicationSessionFile + PortableExtension;
+        = executablePath + QDir::separator() + appSettingsKey() + PortableExtension;
 
     LOG_INFO << "Portable config path " << portableConfigPath;
 
@@ -115,10 +144,10 @@ void PersistentInfo::PrepareOsSettings()
     const auto format = QSettings::NativeFormat;
 #endif
 
-    appSettings_ = std::make_unique<QSettings>( format, QSettings::UserScope, "klogg",
-                                                ApplicationSessionFile );
-    sessionSettings_
-        = std::make_unique<QSettings>( format, QSettings::UserScope, "klogg", SessionSettingsFile );
+    appSettings_ = std::make_unique<QSettings>( format, QSettings::UserScope, appSettingsKey(),
+                                                appSettingsKey() );
+    sessionSettings_ = std::make_unique<QSettings>( format, QSettings::UserScope, appSettingsKey(),
+                                                    sessionSettingsKey() );
 
 #ifndef Q_OS_MAC
     const auto sessionSettingsPath = makeSessionSettingsPath( appSettings_->fileName() );

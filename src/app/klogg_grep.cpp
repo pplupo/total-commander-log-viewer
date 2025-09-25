@@ -28,13 +28,12 @@
 
 #include "cli.h"
 
-const bool PersistentInfo::ForcePortable = true;
-
 int main( int argc, char* argv[] )
 {
 #ifdef KLOGG_USE_MIMALLOC
     mi_stats_reset();
 #endif
+    PersistentInfo::overridePortableMode( true );
     qRegisterMetaType<LinesCount>( "LinesCount" );
     qRegisterMetaType<LineNumber>( "LineNumber" );
 

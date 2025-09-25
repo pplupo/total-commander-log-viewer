@@ -42,6 +42,7 @@
 #include <memory>
 
 #include <QSettings>
+#include <QString>
 
 // Singleton class managing the saving of persistent data to permanent storage
 // Clients must implement Persistable
@@ -56,8 +57,12 @@ class PersistentInfo {
     static QSettings& getSettings( app_settings );
     static QSettings& getSettings( session_settings );
 
+    static void overrideApplicationKeys( const QString& appKey, const QString& sessionKey );
+
+    static void overridePortableMode( bool forcePortable );
+
   private:
-    static const bool ForcePortable;
+    static bool ForcePortable;
 
     explicit PersistentInfo();
     static PersistentInfo& getInstance();

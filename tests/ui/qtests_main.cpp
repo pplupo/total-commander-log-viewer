@@ -31,8 +31,6 @@
 
 #include <logger.h>
 
-const bool PersistentInfo::ForcePortable = true;
-
 class TestRunner : public QObject {
     Q_OBJECT
 
@@ -70,6 +68,8 @@ class TestRunner : public QObject {
 int main( int argc, char* argv[] )
 {
     QApplication a( argc, argv );
+
+    PersistentInfo::overridePortableMode( true );
 
     logging::enableLogging();
 

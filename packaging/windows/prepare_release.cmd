@@ -50,6 +50,33 @@ xcopy %QTDIR%\bin\%KLOGG_QT%Concurrent.dll %KLOGG_WORKSPACE%\release\ /y
 xcopy %QTDIR%\bin\%KLOGG_QT%Xml.dll %KLOGG_WORKSPACE%\release\ /y
 xcopy %QTDIR%\bin\%KLOGG_QT%Core5Compat.dll %KLOGG_WORKSPACE%\release\ /y
 
+echo "Staging Total Commander lister plugin runtime..."
+set "KLOGG_LISTER_DIR=%KLOGG_WORKSPACE%\release\totalcmd\plugins\wlx\klogg_lister"
+md %KLOGG_WORKSPACE%\release\totalcmd
+md %KLOGG_WORKSPACE%\release\totalcmd\plugins
+md %KLOGG_WORKSPACE%\release\totalcmd\plugins\wlx
+md %KLOGG_LISTER_DIR%
+md %KLOGG_LISTER_DIR%\platforms
+md %KLOGG_LISTER_DIR%\styles
+
+xcopy %KLOGG_WORKSPACE%\%KLOGG_BUILD_ROOT%\output\klogg_lister.dll %KLOGG_LISTER_DIR%\ /y
+
+xcopy %QTDIR%\bin\%KLOGG_QT%Core.dll %KLOGG_LISTER_DIR%\ /y
+xcopy %QTDIR%\bin\%KLOGG_QT%Gui.dll %KLOGG_LISTER_DIR%\ /y
+xcopy %QTDIR%\bin\%KLOGG_QT%Network.dll %KLOGG_LISTER_DIR%\ /y
+xcopy %QTDIR%\bin\%KLOGG_QT%Widgets.dll %KLOGG_LISTER_DIR%\ /y
+xcopy %QTDIR%\bin\%KLOGG_QT%Concurrent.dll %KLOGG_LISTER_DIR%\ /y
+xcopy %QTDIR%\bin\%KLOGG_QT%Xml.dll %KLOGG_LISTER_DIR%\ /y
+xcopy %QTDIR%\bin\%KLOGG_QT%Core5Compat.dll %KLOGG_LISTER_DIR%\ /y
+
+xcopy %QTDIR%\plugins\platforms\qwindows.dll %KLOGG_LISTER_DIR%\platforms\ /y
+xcopy %QTDIR%\plugins\styles\qwindowsvistastyle.dll %KLOGG_LISTER_DIR%\styles\ /y
+xcopy %QTDIR%\plugins\styles\qmodernwindowsstyle.dll %KLOGG_LISTER_DIR%\styles\ /y
+
+xcopy %KLOGG_WORKSPACE%\docs\total_commander_lister.md %KLOGG_LISTER_DIR%\README.md /y
+xcopy %KLOGG_WORKSPACE%\COPYING %KLOGG_LISTER_DIR%\ /y
+xcopy %KLOGG_WORKSPACE%\NOTICE %KLOGG_LISTER_DIR%\ /y
+
 md %KLOGG_WORKSPACE%\release\platforms
 xcopy %QTDIR%\plugins\platforms\qwindows.dll %KLOGG_WORKSPACE%\release\platforms\ /y
 
@@ -70,5 +97,6 @@ xcopy %KLOGG_WORKSPACE%\packaging\windows\FileAssociation.nsh  /y
 echo "Making portable archive..."
 7z a -r %KLOGG_WORKSPACE%\klogg-%KLOGG_VERSION%-%KLOGG_ARCH%-%KLOGG_QT%-portable.zip @%KLOGG_WORKSPACE%\packaging\windows\7z_klogg_listfile.txt
 7z a %KLOGG_WORKSPACE%\klogg-%KLOGG_VERSION%-%KLOGG_ARCH%-%KLOGG_QT%-pdb.zip @%KLOGG_WORKSPACE%\packaging\windows\7z_pdb_listfile.txt
+7z a -r %KLOGG_WORKSPACE%\klogg-totalcmd-lister-%KLOGG_VERSION%-%KLOGG_ARCH%-%KLOGG_QT%.zip %KLOGG_LISTER_DIR%\*
 
 echo "Done!"

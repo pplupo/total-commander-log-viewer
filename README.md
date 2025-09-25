@@ -124,6 +124,10 @@ Windows installer is also available from:
 * [ ![Scoop Extras bucket](https://img.shields.io/scoop/v/klogg?bucket=extras)](https://scoopsearch.github.io/#/apps?q=klogg)
 * [Winget package](https://winget.run/pkg/variar/klogg) 
 
+
+#### Total Commander lister plugin
+
+Developers and power users can embed Klogg directly inside Total Commander via the new lister plugin. Build and installation instructions live in [`docs/total_commander_lister.md`](docs/total_commander_lister.md).
 #### Mac OS
 Package for Mac can be installed from Homebrew
 

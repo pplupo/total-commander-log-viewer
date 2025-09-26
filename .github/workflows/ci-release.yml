@@ -33,6 +33,7 @@ jobs:
       run: ls -R ./packages-*
 
     - name: Setup Sentry CLI
+      if: ${{ secrets.SENTRY_TOKEN != '' }}
       uses: mathrix-education/setup-sentry-cli@0.1.0
       env:
         ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
@@ -41,13 +42,19 @@ jobs:
         organization: anton-filimonov
         project: klogg
 
+    - name: Skip Sentry configuration (missing token)
+      if: ${{ secrets.SENTRY_TOKEN == '' }}
+      run: echo "SENTRY_TOKEN secret is not configured; skipping Sentry release setup."
+
     - name: Create Sentry release
+      if: ${{ secrets.SENTRY_TOKEN != '' }}
       shell: sh
       run: |
         sentry-cli releases new $KLOGG_VERSION
         sentry-cli releases set-commits --auto $KLOGG_VERSION
 
     - name: Upload symbols linux
+      if: ${{ secrets.SENTRY_TOKEN != '' }}
       shell: sh
       run: |
         xz -d ./packages-focal/klogg_focal.debug.xz
@@ -62,12 +69,14 @@ jobs:
         sentry-cli upload-dif ./packages-appimage/klogg_appimage.debug  ./packages-appimage/klogg_appimage
 
     - name: Upload symbols mac
+      if: ${{ secrets.SENTRY_TOKEN != '' }}
       shell: sh
       run: |
         sentry-cli upload-dif ./packages-macos-intel-qt6/klogg-x64.app/Contents/MacOS/klogg ./packages-macos-intel-qt6/klogg-x64.dSym
         sentry-cli upload-dif ./packages-macos-arm-qt6/klogg-arm64.app/Contents/MacOS/klogg ./packages-macos-arm-qt6/klogg-arm64.dSym
 
     - name: Upload symbols win
+      if: ${{ secrets.SENTRY_TOKEN != '' }}
       shell: sh
       run: |
         sentry-cli upload-dif ./packages-windows-x86-qt5/klogg-$KLOGG_VERSION-x86-Qt5-pdb.zip 

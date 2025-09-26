@@ -82,8 +82,16 @@ xcopy %QTDIR%\bin\%KLOGG_QT%Xml.dll %KLOGG_LISTER_DIR%\ /y
 xcopy %QTDIR%\bin\%KLOGG_QT%Core5Compat.dll %KLOGG_LISTER_DIR%\ /y
 
 xcopy %QTDIR%\plugins\platforms\qwindows.dll %KLOGG_LISTER_DIR%\platforms\ /y
-xcopy %QTDIR%\plugins\styles\qwindowsvistastyle.dll %KLOGG_LISTER_DIR%\styles\ /y
-if exist %QTDIR%\plugins\styles\qmodernwindowsstyle.dll xcopy %QTDIR%\plugins\styles\qmodernwindowsstyle.dll %KLOGG_LISTER_DIR%\styles\ /y
+if exist %QTDIR%\plugins\styles\qwindowsvistastyle.dll (
+    xcopy %QTDIR%\plugins\styles\qwindowsvistastyle.dll %KLOGG_LISTER_DIR%\styles\ /y
+) else (
+    echo "Warning: %QTDIR%\plugins\styles\qwindowsvistastyle.dll not found for lister plugin"
+)
+if exist %QTDIR%\plugins\styles\qmodernwindowsstyle.dll (
+    xcopy %QTDIR%\plugins\styles\qmodernwindowsstyle.dll %KLOGG_LISTER_DIR%\styles\ /y
+) else (
+    echo "Warning: %QTDIR%\plugins\styles\qmodernwindowsstyle.dll not found for lister plugin"
+)
 
 copy /y "%KLOGG_WORKSPACE%\docs\total_commander_lister.md" "%KLOGG_LISTER_DIR%\README.md" >nul
 xcopy %KLOGG_WORKSPACE%\COPYING %KLOGG_LISTER_DIR%\ /y
@@ -93,8 +101,16 @@ md %KLOGG_WORKSPACE%\release\platforms
 xcopy %QTDIR%\plugins\platforms\qwindows.dll %KLOGG_WORKSPACE%\release\platforms\ /y
 
 md %KLOGG_WORKSPACE%\release\styles
-xcopy %QTDIR%\plugins\styles\qwindowsvistastyle.dll %KLOGG_WORKSPACE%\release\styles /y
-if exist %QTDIR%\plugins\styles\qmodernwindowsstyle.dll xcopy %QTDIR%\plugins\styles\qmodernwindowsstyle.dll %KLOGG_WORKSPACE%\release\styles /y
+if exist %QTDIR%\plugins\styles\qwindowsvistastyle.dll (
+    xcopy %QTDIR%\plugins\styles\qwindowsvistastyle.dll %KLOGG_WORKSPACE%\release\styles /y
+) else (
+    echo "Warning: %QTDIR%\plugins\styles\qwindowsvistastyle.dll not found for main runtime"
+)
+if exist %QTDIR%\plugins\styles\qmodernwindowsstyle.dll (
+    xcopy %QTDIR%\plugins\styles\qmodernwindowsstyle.dll %KLOGG_WORKSPACE%\release\styles /y
+) else (
+    echo "Warning: %QTDIR%\plugins\styles\qmodernwindowsstyle.dll not found for main runtime"
+)
 
 echo "Copying packaging files..."
 md %KLOGG_WORKSPACE%\chocolatey

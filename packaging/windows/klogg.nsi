@@ -78,7 +78,6 @@ Section "klogg" klogg
 !else
     DetailPrint "Skipping TBB runtime: release\\tbb12.dll not found"
 !endif
-
     File COPYING
     File NOTICE
     File README.md
@@ -128,10 +127,19 @@ Section "Qt Runtime libraries" qtlibs
     File release\platforms\qwindows.dll
     SetOutPath $INSTDIR\styles
 !if ${QT_MAJOR} == "Qt6"
-    File release\styles\qmodernwindowsstyle.dll
+    IfFileExists "release\styles\qmodernwindowsstyle.dll" 0 qt6_style_missing
+    File "release\styles\qmodernwindowsstyle.dll"
+    Goto qt_style_done
+qt6_style_missing:
+    DetailPrint "Skipping Qt style: release\\styles\\qmodernwindowsstyle.dll not found"
 !else
-    File release\styles\qwindowsvistastyle.dll
+    IfFileExists "release\styles\qwindowsvistastyle.dll" 0 qt5_style_missing
+    File "release\styles\qwindowsvistastyle.dll"
+    Goto qt_style_done
+qt5_style_missing:
+    DetailPrint "Skipping Qt style: release\\styles\\qwindowsvistastyle.dll not found"
 !endif
+qt_style_done:
 
 SectionEnd
 

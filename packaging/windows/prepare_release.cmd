@@ -97,6 +97,16 @@ copy /y "%KLOGG_WORKSPACE%\docs\total_commander_lister.md" "%KLOGG_LISTER_DIR%\R
 xcopy %KLOGG_WORKSPACE%\COPYING %KLOGG_LISTER_DIR%\ /y
 xcopy %KLOGG_WORKSPACE%\NOTICE %KLOGG_LISTER_DIR%\ /y
 
+echo "Writing Total Commander auto-install manifest..."
+set "KLOGG_TOTALCMD_ROOT=%KLOGG_WORKSPACE%\release\totalcmd"
+for %%F in ("%KLOGG_TOTALCMD_ROOT%\pluginst.inf") do del "%%~fF" 2>nul
+powershell -NoLogo -NoProfile -Command ^
+  "$pluginRoot = Join-Path $env:KLOGG_WORKSPACE 'release/totalcmd';" ^
+  "$pluginDir = 'plugins\\wlx\\klogg_lister';" ^
+  "$files = Get-ChildItem -Path (Join-Path $pluginRoot $pluginDir) -File -Recurse | ForEach-Object { $_.FullName.Substring($pluginRoot.Length + 1) };" ^
+  "$header = @('[plugininstall]', 'type=wlx', 'description=Klogg Lister Plugin ' + $env:KLOGG_VERSION + ' (' + $env:KLOGG_ARCH + ')', 'targetdir=%COMMANDER_PATH%\\plugins\\wlx\\klogg_lister', '', '[source]');" ^
+  "Set-Content -Path (Join-Path $pluginRoot 'pluginst.inf') -Value ($header + $files) -Encoding Ascii"
+
 md %KLOGG_WORKSPACE%\release\platforms
 xcopy %QTDIR%\plugins\platforms\qwindows.dll %KLOGG_WORKSPACE%\release\platforms\ /y
 
@@ -128,6 +138,8 @@ set "TBB_PDB_ARGS="
 if exist %KLOGG_WORKSPACE%\release\tbb12.dll set "TBB_PDB_ARGS=%TBB_PDB_ARGS% .\release\tbb12.dll"
 if exist %KLOGG_WORKSPACE%\release\tbb12.pdb set "TBB_PDB_ARGS=%TBB_PDB_ARGS% .\release\tbb12.pdb"
 7z a %KLOGG_WORKSPACE%\klogg-%KLOGG_VERSION%-%KLOGG_ARCH%-%KLOGG_QT%-pdb.zip .\release\klogg.exe .\release\klogg.pdb .\release\klogg_portable.exe .\release\klogg_portable.pdb%TBB_PDB_ARGS%
-7z a -r %KLOGG_WORKSPACE%\klogg-totalcmd-lister-%KLOGG_VERSION%-%KLOGG_ARCH%-%KLOGG_QT%.zip %KLOGG_LISTER_DIR%\*
+pushd "%KLOGG_TOTALCMD_ROOT%"
+7z a -tzip %KLOGG_WORKSPACE%\klogg-totalcmd-lister-%KLOGG_VERSION%-%KLOGG_ARCH%-%KLOGG_QT%.zip *
+popd
 
 echo "Done!"

@@ -77,15 +77,19 @@ is produced during regular Windows CI runs.
 `release/totalcmd/plugins/wlx/klogg_lister` and gathers the required Qt runtime
 modules (`QtCore`, `QtGui`, `QtWidgets`, `QtConcurrent`, `QtNetwork`, `QtXml`,
 `Qt5Compat`, plus the `platforms` and `styles` plugins). The script also copies
-`docs/total_commander_lister.md` as `README.md` inside the plugin bundle and
-produces an archive named:
+`docs/total_commander_lister.md` as `README.md` inside the plugin bundle,
+writes a `pluginst.inf` manifest at the root of the bundle so Total Commander
+recognises the ZIP as an auto-install package, and produces an archive named:
 
 ```
 klogg-totalcmd-lister-<version>-<arch>-<qt>.zip
 ```
 
-Distribute this ZIP directly into Total Commander’s configuration directory
-(e.g. extract to `%COMMANDER_PATH%\plugins\wlx\klogg_lister`).
+Total Commander users can install the ZIP directly (press `Enter` on the
+archive inside Total Commander) or extract it manually into
+`%COMMANDER_PATH%\plugins\wlx\klogg_lister`. The CI workflow uploads this
+archive as a release asset so it appears on the GitHub **Releases** page in
+addition to the workflow artifacts.
 
 ## Installation & usage
 

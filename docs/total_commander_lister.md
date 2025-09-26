@@ -74,11 +74,12 @@ is produced during regular Windows CI runs.
 ## Packaging
 
 `packaging/windows/prepare_release.cmd` now stages the plugin under
-`release/totalcmd/plugins/wlx/klogg_lister` and gathers the required Qt runtime
-modules (`QtCore`, `QtGui`, `QtWidgets`, `QtConcurrent`, `QtNetwork`, `QtXml`,
+`release/totalcmd/klogg_lister` and gathers the required Qt runtime modules
+(`QtCore`, `QtGui`, `QtWidgets`, `QtConcurrent`, `QtNetwork`, `QtXml`,
 `Qt5Compat`, plus the `platforms` and `styles` plugins). The script also copies
-`docs/total_commander_lister.md` as `README.md` inside the plugin bundle and
-produces an archive named:
+`docs/total_commander_lister.md` as `README.md` inside the plugin bundle,
+writes a `pluginst.inf` manifest so that Total Commander recognises the ZIP as
+a self-installing lister plugin, and produces an archive named:
 
 ```
 klogg-totalcmd-lister-<version>-<arch>-<qt>.zip

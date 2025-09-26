@@ -63,10 +63,9 @@ xcopy %QTDIR%\bin\%KLOGG_QT%Xml.dll %KLOGG_WORKSPACE%\release\ /y
 xcopy %QTDIR%\bin\%KLOGG_QT%Core5Compat.dll %KLOGG_WORKSPACE%\release\ /y
 
 echo "Staging Total Commander lister plugin runtime..."
-set "KLOGG_LISTER_DIR=%KLOGG_WORKSPACE%\release\totalcmd\plugins\wlx\klogg_lister"
-md %KLOGG_WORKSPACE%\release\totalcmd
-md %KLOGG_WORKSPACE%\release\totalcmd\plugins
-md %KLOGG_WORKSPACE%\release\totalcmd\plugins\wlx
+set "KLOGG_LISTER_ROOT=%KLOGG_WORKSPACE%\release\totalcmd"
+set "KLOGG_LISTER_DIR=%KLOGG_LISTER_ROOT%\klogg_lister"
+md %KLOGG_LISTER_ROOT%
 md %KLOGG_LISTER_DIR%
 md %KLOGG_LISTER_DIR%\platforms
 md %KLOGG_LISTER_DIR%\styles
@@ -88,7 +87,7 @@ if exist %QTDIR%\plugins\styles\qwindowsvistastyle.dll (
     echo "Warning: %QTDIR%\plugins\styles\qwindowsvistastyle.dll not found for lister plugin"
 )
 if exist %QTDIR%\plugins\styles\qmodernwindowsstyle.dll (
-    xcopy %QTDIR%\plugins\styles\qmodernwindowsstyle.dll %KLOGG_LISTER_DIR%\styles\ /y
+xcopy %QTDIR%\plugins\styles\qmodernwindowsstyle.dll %KLOGG_LISTER_DIR%\styles\ /y
 ) else (
     echo "Warning: %QTDIR%\plugins\styles\qmodernwindowsstyle.dll not found for lister plugin"
 )
@@ -96,6 +95,9 @@ if exist %QTDIR%\plugins\styles\qmodernwindowsstyle.dll (
 copy /y "%KLOGG_WORKSPACE%\docs\total_commander_lister.md" "%KLOGG_LISTER_DIR%\README.md" >nul
 xcopy %KLOGG_WORKSPACE%\COPYING %KLOGG_LISTER_DIR%\ /y
 xcopy %KLOGG_WORKSPACE%\NOTICE %KLOGG_LISTER_DIR%\ /y
+
+copy /y "%KLOGG_WORKSPACE%\packaging\windows\totalcmd\pluginst.inf.in" "%KLOGG_LISTER_ROOT%\pluginst.inf" >nul
+powershell -NoProfile -Command "(Get-Content '%KLOGG_LISTER_ROOT%\pluginst.inf') -replace '@KLOGG_VERSION@', $env:KLOGG_VERSION | Set-Content '%KLOGG_LISTER_ROOT%\pluginst.inf' -Encoding ASCII"
 
 md %KLOGG_WORKSPACE%\release\platforms
 xcopy %QTDIR%\plugins\platforms\qwindows.dll %KLOGG_WORKSPACE%\release\platforms\ /y
@@ -128,6 +130,8 @@ set "TBB_PDB_ARGS="
 if exist %KLOGG_WORKSPACE%\release\tbb12.dll set "TBB_PDB_ARGS=%TBB_PDB_ARGS% .\release\tbb12.dll"
 if exist %KLOGG_WORKSPACE%\release\tbb12.pdb set "TBB_PDB_ARGS=%TBB_PDB_ARGS% .\release\tbb12.pdb"
 7z a %KLOGG_WORKSPACE%\klogg-%KLOGG_VERSION%-%KLOGG_ARCH%-%KLOGG_QT%-pdb.zip .\release\klogg.exe .\release\klogg.pdb .\release\klogg_portable.exe .\release\klogg_portable.pdb%TBB_PDB_ARGS%
-7z a -r %KLOGG_WORKSPACE%\klogg-totalcmd-lister-%KLOGG_VERSION%-%KLOGG_ARCH%-%KLOGG_QT%.zip %KLOGG_LISTER_DIR%\*
+pushd %KLOGG_LISTER_ROOT%
+7z a -r %KLOGG_WORKSPACE%\klogg-totalcmd-lister-%KLOGG_VERSION%-%KLOGG_ARCH%-%KLOGG_QT%.zip *
+popd
 
 echo "Done!"

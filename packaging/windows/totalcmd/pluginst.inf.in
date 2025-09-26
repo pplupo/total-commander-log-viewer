@@ -1,0 +1,6 @@
+[plugininstall]
+title=Klogg Lister Plugin
+description=Embed the Klogg log viewer inside Total Commander.
+type=wlx
+version=@KLOGG_VERSION@
+defaultdir=klogg_lister

@@ -1,0 +1,180 @@
+name: "Total Commander Plugin Release"
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+    inputs:
+      run-tests:
+        description: "Run unit tests before packaging"
+        default: 'true'
+        required: false
+
+jobs:
+  windows-plugin:
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: windows-2022
+    strategy:
+      matrix:
+        config:
+          - arch: x64
+            qt_version: 6.7.3
+            qt_modules: qt5compat
+            qt_arch: win64_msvc2019_64
+            ssl_arch: -x64
+            cmake_opts: ''
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Cache OpenSSL
+        id: cache-openssl
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}\\openssl-1.1
+          key: OpensslCache-1-1-1w
+
+      - name: Download OpenSSL
+        if: ${{ steps.cache-openssl.outputs.cache-hit != 'true' }}
+        run: |
+          Invoke-WebRequest -Uri "https://www.firedaemon.com/download-firedaemon-openssl-1.1.1-zip" -OutFile openssl.zip
+          7z x openssl.zip
+
+      - name: Set OpenSSL paths
+        shell: bash
+        run: |
+          echo "SSL_DIR=${{ github.workspace }}\\openssl-1.1\\${{ matrix.config.arch }}\\bin" >> $GITHUB_ENV
+          echo "SSL_ARCH=${{ matrix.config.ssl_arch }}" >> $GITHUB_ENV
+
+      - name: Install Ninja
+        uses: seanmiddleditch/gha-setup-ninja@master
+
+      - name: Cache Qt
+        id: cache-qt
+        uses: actions/cache@v4
+        with:
+          path: ../Qt
+          key: QtCache-${{ runner.os }}-${{ matrix.config.arch }}-${{ matrix.config.qt_version }}
+
+      - name: Install Qt
+        if: ${{ matrix.config.qt_arch }}
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: ${{ matrix.config.qt_version }}
+          arch: ${{ matrix.config.qt_arch }}
+          cached: ${{ steps.cache-qt.outputs.cache-hit }}
+          modules: ${{ matrix.config.qt_modules }}
+          archives: qtbase qtimageformats qtsvg qttools qttranslations icu
+
+      - name: Set Boost variables
+        shell: bash
+        run: |
+          echo "BOOST_ROOT=${{ github.workspace }}/3rdparty/boost" >> $GITHUB_ENV
+          echo "BOOST_URL=https://sourceforge.net/projects/boost/files/boost/1.86.0/boost_1_86_0.tar.bz2/download" >> $GITHUB_ENV
+
+      - name: Restore Boost cache
+        uses: actions/cache@v4
+        id: cache-boost
+        with:
+          path: ${{ env.BOOST_ROOT }}
+          key: ${{ env.BOOST_URL }}
+
+      - name: Install Boost
+        shell: bash
+        run: |
+          if echo "${{ steps.cache-boost.outputs.cache-hit }}" | grep -c "true"; then
+            echo "Using boost from cache"
+          else
+            echo "Downloading boost"
+            if [ "$OS" = "Windows_NT" ]; then
+              BOOST_ROOT=$(echo "$BOOST_ROOT" | sed 's/\\\\/\//g')
+            fi
+            mkdir -p "$BOOST_ROOT"
+            curl --progress-bar --location --output "$BOOST_ROOT/download.tar.bz2" "$BOOST_URL"
+            7z -o"$BOOST_ROOT" x "$BOOST_ROOT/download.tar.bz2" -y -bd
+            7z -o"$BOOST_ROOT" x "$BOOST_ROOT/download.tar" -y -bd
+            cd "$BOOST_ROOT" && cp -r boost_*/* .
+            rm -rf boost_*/* download.tar.bz2 download.tar
+          fi
+
+      - name: Set common environment variables
+        shell: bash
+        run: |
+          echo "KLOGG_WORKSPACE=${{ github.workspace }}" >> $GITHUB_ENV
+          echo "KLOGG_BUILD_ROOT=build_root" >> $GITHUB_ENV
+          echo "KLOGG_ARCH=${{ matrix.config.arch }}" >> $GITHUB_ENV
+          echo "KLOGG_CMAKE_OPTS=-G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DKLOGG_GENERIC_CPU=ON -DKLOGG_USE_SENTRY=ON -DCMAKE_INSTALL_PREFIX=/usr ${{ matrix.config.cmake_opts }}" >> $GITHUB_ENV
+          echo "platform=${{ matrix.config.arch }}" >> $GITHUB_ENV
+
+      - name: Set Qt environment (Qt 6)
+        if: ${{ startsWith(matrix.config.qt_version, '6') }}
+        shell: bash
+        run: |
+          echo "KLOGG_QT=Qt6" >> $GITHUB_ENV
+          echo "KLOGG_QT_DIR=${{ env.Qt6_Dir }}" >> $GITHUB_ENV
+
+      - name: Set Qt environment (Qt 5)
+        if: ${{ startsWith(matrix.config.qt_version, '5') }}
+        shell: bash
+        run: |
+          echo "KLOGG_QT=Qt5" >> $GITHUB_ENV
+          echo "KLOGG_QT_DIR=${{ env.Qt5_Dir }}" >> $GITHUB_ENV
+
+      - name: Set Klogg version
+        shell: bash
+        run: |
+          echo "KLOGG_VERSION=24.11.0.$(( ${{ github.run_number }} + 717 ))" >> $GITHUB_ENV
+
+      - name: Prepare MSVC developer command prompt
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.config.arch }}
+
+      - name: Persist VC redistributable path
+        shell: pwsh
+        run: |
+          "platform=${{ matrix.config.arch }}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          if (-not $env:VCToolsRedistDir) {
+            throw 'VCToolsRedistDir environment variable is not defined after MSVC setup.'
+          }
+          "VCToolsRedistDir=$($env:VCToolsRedistDir)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Configure CMake
+        shell: bash
+        run: |
+          mkdir -p "$KLOGG_BUILD_ROOT"
+          cd "$KLOGG_BUILD_ROOT"
+          cmake $KLOGG_CMAKE_OPTS -DCPM_SOURCE_CACHE=$KLOGG_WORKSPACE/cpm_cache -DKLOGG_OVERRIDE_MALLOC=OFF $KLOGG_WORKSPACE
+
+      - name: Build
+        shell: bash
+        run: |
+          cmake --build "$KLOGG_BUILD_ROOT" -t ci_build
+
+      - name: Run tests
+        if: ${{ github.event.inputs.run-tests != 'false' }}
+        shell: bash
+        run: |
+          cd "$KLOGG_BUILD_ROOT"
+          ctest --output-on-failure
+
+      - name: Package Total Commander plugin
+        shell: cmd
+        run: |
+          packaging\windows\prepare_release.cmd
+
+      - name: Upload plugin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: klogg-totalcmd-lister-${{ env.KLOGG_VERSION }}-${{ env.KLOGG_ARCH }}-${{ env.KLOGG_QT }}
+          path: klogg-totalcmd-lister-${{ env.KLOGG_VERSION }}-${{ env.KLOGG_ARCH }}-${{ env.KLOGG_QT }}.zip
+          if-no-files-found: error
+
+      - name: Publish plugin release
+        if: ${{ secrets.KLOGG_GITHUB_TOKEN != '' }}
+        uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: ${{ secrets.KLOGG_GITHUB_TOKEN }}
+          automatic_release_tag: continuous-totalcmd
+          prerelease: true
+          files: |
+            klogg-totalcmd-lister-${{ env.KLOGG_VERSION }}-${{ env.KLOGG_ARCH }}-${{ env.KLOGG_QT }}.zip

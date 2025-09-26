@@ -12,10 +12,10 @@ on:
 
 jobs:
   windows-plugin:
+    permissions:
+      contents: write
     if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip ci]') }}
     runs-on: windows-2022
-    env:
-      KLOGG_GITHUB_TOKEN: ${{ secrets.KLOGG_GITHUB_TOKEN }}
     strategy:
       matrix:
         config:
@@ -174,10 +174,9 @@ jobs:
           if-no-files-found: error
 
       - name: Publish plugin release
-        if: ${{ env.KLOGG_GITHUB_TOKEN != '' }}
         uses: marvinpinto/action-automatic-releases@latest
         with:
-          repo_token: ${{ env.KLOGG_GITHUB_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
           automatic_release_tag: continuous-totalcmd
           prerelease: true
           files: |

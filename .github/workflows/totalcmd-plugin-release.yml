@@ -14,6 +14,8 @@ jobs:
   windows-plugin:
     if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip ci]') }}
     runs-on: windows-2022
+    env:
+      KLOGG_GITHUB_TOKEN: ${{ secrets.KLOGG_GITHUB_TOKEN }}
     strategy:
       matrix:
         config:
@@ -24,6 +26,8 @@ jobs:
             ssl_arch: -x64
             cmake_opts: ''
     steps:
+      # This job performs a fresh checkout, build, test, and packaging sequence,
+      # so it does not require artifacts produced by the ci-build workflow.
       - uses: actions/checkout@v3
 
       - name: Cache OpenSSL
@@ -170,10 +174,10 @@ jobs:
           if-no-files-found: error
 
       - name: Publish plugin release
-        if: ${{ secrets.KLOGG_GITHUB_TOKEN != '' }}
+        if: ${{ env.KLOGG_GITHUB_TOKEN != '' }}
         uses: marvinpinto/action-automatic-releases@latest
         with:
-          repo_token: ${{ secrets.KLOGG_GITHUB_TOKEN }}
+          repo_token: ${{ env.KLOGG_GITHUB_TOKEN }}
           automatic_release_tag: continuous-totalcmd
           prerelease: true
           files: |

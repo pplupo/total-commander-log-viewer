@@ -73,20 +73,24 @@ is produced during regular Windows CI runs.
 
 ## Packaging
 
-`packaging/windows/prepare_release.cmd` now stages the plugin under
-`release/totalcmd/plugins/wlx/klogg_lister` and gathers the required Qt runtime
-modules (`QtCore`, `QtGui`, `QtWidgets`, `QtConcurrent`, `QtNetwork`, `QtXml`,
-`Qt5Compat`, plus the `platforms` and `styles` plugins). The script also copies
-`docs/total_commander_lister.md` as `README.md` inside the plugin bundle,
-writes a `pluginst.inf` manifest at the root of the bundle so Total Commander
-recognises the ZIP as an auto-install package, and produces an archive named:
+`packaging/windows/prepare_release.cmd` stages the plugin payload and gathers
+the required Qt runtime modules (`QtCore`, `QtGui`, `QtWidgets`,
+`QtConcurrent`, `QtNetwork`, `QtXml`, `Qt5Compat`, plus the `platforms` and
+`styles` plugins). The script copies `klogg_lister.dll` to
+`release/totalcmd/klogg_lister.wlx` (WLX files are plain DLLs) and places the
+Qt runtime files alongside it so the plugin can load without additional
+installer steps. `docs/total_commander_lister.md` is copied as `README.md`
+into the same directory. A `pluginst.inf` manifest enumerates the plugin DLL,
+runtime dependencies, and documentation so Total Commander installs every
+file into `%COMMANDER_PATH%\plugins\wlx\klogg_lister`. The final distribution
+archive is named:
 
 ```
 klogg-totalcmd-lister-<version>-<arch>-<qt>.zip
 ```
 
 Total Commander users can install the ZIP directly (press `Enter` on the
-archive inside Total Commander) or extract it manually into
+archive inside Total Commander) or extract `klogg_lister.wlx` manually into
 `%COMMANDER_PATH%\plugins\wlx\klogg_lister`. The CI workflow uploads this
 archive as a release asset so it appears on the GitHub **Releases** page in
 addition to the workflow artifacts.

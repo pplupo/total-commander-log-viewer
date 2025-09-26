@@ -63,49 +63,48 @@ xcopy %QTDIR%\bin\%KLOGG_QT%Xml.dll %KLOGG_WORKSPACE%\release\ /y
 xcopy %QTDIR%\bin\%KLOGG_QT%Core5Compat.dll %KLOGG_WORKSPACE%\release\ /y
 
 echo "Staging Total Commander lister plugin runtime..."
-set "KLOGG_LISTER_DIR=%KLOGG_WORKSPACE%\release\totalcmd\plugins\wlx\klogg_lister"
-md %KLOGG_WORKSPACE%\release\totalcmd
-md %KLOGG_WORKSPACE%\release\totalcmd\plugins
-md %KLOGG_WORKSPACE%\release\totalcmd\plugins\wlx
-md %KLOGG_LISTER_DIR%
-md %KLOGG_LISTER_DIR%\platforms
-md %KLOGG_LISTER_DIR%\styles
+set "KLOGG_TOTALCMD_ROOT=%KLOGG_WORKSPACE%\release\totalcmd"
+md %KLOGG_TOTALCMD_ROOT%
+md %KLOGG_TOTALCMD_ROOT%\platforms
+md %KLOGG_TOTALCMD_ROOT%\styles
 
-xcopy %KLOGG_WORKSPACE%\%KLOGG_BUILD_ROOT%\output\klogg_lister.dll %KLOGG_LISTER_DIR%\ /y
+copy /y "%KLOGG_WORKSPACE%\%KLOGG_BUILD_ROOT%\output\klogg_lister.dll" "%KLOGG_TOTALCMD_ROOT%\klogg_lister.wlx" >nul
 
-xcopy %QTDIR%\bin\%KLOGG_QT%Core.dll %KLOGG_LISTER_DIR%\ /y
-xcopy %QTDIR%\bin\%KLOGG_QT%Gui.dll %KLOGG_LISTER_DIR%\ /y
-xcopy %QTDIR%\bin\%KLOGG_QT%Network.dll %KLOGG_LISTER_DIR%\ /y
-xcopy %QTDIR%\bin\%KLOGG_QT%Widgets.dll %KLOGG_LISTER_DIR%\ /y
-xcopy %QTDIR%\bin\%KLOGG_QT%Concurrent.dll %KLOGG_LISTER_DIR%\ /y
-xcopy %QTDIR%\bin\%KLOGG_QT%Xml.dll %KLOGG_LISTER_DIR%\ /y
-xcopy %QTDIR%\bin\%KLOGG_QT%Core5Compat.dll %KLOGG_LISTER_DIR%\ /y
+xcopy %QTDIR%\bin\%KLOGG_QT%Core.dll %KLOGG_TOTALCMD_ROOT%\ /y
+xcopy %QTDIR%\bin\%KLOGG_QT%Gui.dll %KLOGG_TOTALCMD_ROOT%\ /y
+xcopy %QTDIR%\bin\%KLOGG_QT%Network.dll %KLOGG_TOTALCMD_ROOT%\ /y
+xcopy %QTDIR%\bin\%KLOGG_QT%Widgets.dll %KLOGG_TOTALCMD_ROOT%\ /y
+xcopy %QTDIR%\bin\%KLOGG_QT%Concurrent.dll %KLOGG_TOTALCMD_ROOT%\ /y
+xcopy %QTDIR%\bin\%KLOGG_QT%Xml.dll %KLOGG_TOTALCMD_ROOT%\ /y
+xcopy %QTDIR%\bin\%KLOGG_QT%Core5Compat.dll %KLOGG_TOTALCMD_ROOT%\ /y
 
-xcopy %QTDIR%\plugins\platforms\qwindows.dll %KLOGG_LISTER_DIR%\platforms\ /y
+xcopy %QTDIR%\plugins\platforms\qwindows.dll %KLOGG_TOTALCMD_ROOT%\platforms\ /y
 if exist %QTDIR%\plugins\styles\qwindowsvistastyle.dll (
-    xcopy %QTDIR%\plugins\styles\qwindowsvistastyle.dll %KLOGG_LISTER_DIR%\styles\ /y
+    xcopy %QTDIR%\plugins\styles\qwindowsvistastyle.dll %KLOGG_TOTALCMD_ROOT%\styles\ /y
 ) else (
     echo "Warning: %QTDIR%\plugins\styles\qwindowsvistastyle.dll not found for lister plugin"
 )
 if exist %QTDIR%\plugins\styles\qmodernwindowsstyle.dll (
-    xcopy %QTDIR%\plugins\styles\qmodernwindowsstyle.dll %KLOGG_LISTER_DIR%\styles\ /y
+    xcopy %QTDIR%\plugins\styles\qmodernwindowsstyle.dll %KLOGG_TOTALCMD_ROOT%\styles\ /y
 ) else (
     echo "Warning: %QTDIR%\plugins\styles\qmodernwindowsstyle.dll not found for lister plugin"
 )
 
-copy /y "%KLOGG_WORKSPACE%\docs\total_commander_lister.md" "%KLOGG_LISTER_DIR%\README.md" >nul
-xcopy %KLOGG_WORKSPACE%\COPYING %KLOGG_LISTER_DIR%\ /y
-xcopy %KLOGG_WORKSPACE%\NOTICE %KLOGG_LISTER_DIR%\ /y
+copy /y "%KLOGG_WORKSPACE%\docs\total_commander_lister.md" "%KLOGG_TOTALCMD_ROOT%\README.md" >nul
+xcopy %KLOGG_WORKSPACE%\COPYING %KLOGG_TOTALCMD_ROOT%\ /y
+xcopy %KLOGG_WORKSPACE%\NOTICE %KLOGG_TOTALCMD_ROOT%\ /y
 
 echo "Writing Total Commander auto-install manifest..."
-set "KLOGG_TOTALCMD_ROOT=%KLOGG_WORKSPACE%\release\totalcmd"
 for %%F in ("%KLOGG_TOTALCMD_ROOT%\pluginst.inf") do del "%%~fF" 2>nul
 powershell -NoLogo -NoProfile -Command ^
   "$pluginRoot = Join-Path $env:KLOGG_WORKSPACE 'release/totalcmd';" ^
-  "$pluginDir = 'plugins\\wlx\\klogg_lister';" ^
-  "$files = Get-ChildItem -Path (Join-Path $pluginRoot $pluginDir) -File -Recurse | ForEach-Object { $_.FullName.Substring($pluginRoot.Length + 1) };" ^
-  "$header = @('[plugininstall]', 'type=wlx', 'description=Klogg Lister Plugin ' + $env:KLOGG_VERSION + ' (' + $env:KLOGG_ARCH + ')', 'targetdir=%COMMANDER_PATH%\\plugins\\wlx\\klogg_lister', '', '[source]');" ^
-  "Set-Content -Path (Join-Path $pluginRoot 'pluginst.inf') -Value ($header + $files) -Encoding Ascii"
+  "$qtPrefix = $env:KLOGG_QT;" ^
+  "$files = @('klogg_lister.wlx', \"${qtPrefix}Core.dll\", \"${qtPrefix}Gui.dll\", \"${qtPrefix}Network.dll\", \"${qtPrefix}Widgets.dll\", \"${qtPrefix}Concurrent.dll\", \"${qtPrefix}Xml.dll\", \"${qtPrefix}Core5Compat.dll\", 'platforms\\qwindows.dll');" ^
+  "if (Test-Path (Join-Path $pluginRoot 'styles/qwindowsvistastyle.dll')) { $files += 'styles\\qwindowsvistastyle.dll' }" ^
+  "if (Test-Path (Join-Path $pluginRoot 'styles/qmodernwindowsstyle.dll')) { $files += 'styles\\qmodernwindowsstyle.dll' }" ^
+  "$files += 'README.md', 'COPYING', 'NOTICE';" ^
+  "$content = @('[plugininstall]', 'type=wlx', 'description=Klogg Lister Plugin ' + $env:KLOGG_VERSION + ' (' + $env:KLOGG_ARCH + ')', 'targetdir=%COMMANDER_PATH%\\plugins\\wlx\\klogg_lister', '', '[source]') + $files;" ^
+  "Set-Content -Path (Join-Path $pluginRoot 'pluginst.inf') -Value $content -Encoding Ascii"
 
 md %KLOGG_WORKSPACE%\release\platforms
 xcopy %QTDIR%\plugins\platforms\qwindows.dll %KLOGG_WORKSPACE%\release\platforms\ /y

@@ -77,23 +77,30 @@ is produced during regular Windows CI runs.
 the required Qt runtime modules (`QtCore`, `QtGui`, `QtWidgets`,
 `QtConcurrent`, `QtNetwork`, `QtXml`, `Qt5Compat`, plus the `platforms` and
 `styles` plugins). The script copies `klogg_lister.dll` to
-`release/totalcmd/klogg_lister.wlx` (WLX files are plain DLLs) and places the
+`release/totalcmd/klogg_lister.wlx64` (WLX/WLX64 files are plain DLLs; the 64-bit
+build uses the `.wlx64` suffix expected by Total Commander) and places the
 Qt runtime files alongside it so the plugin can load without additional
 installer steps. `docs/total_commander_lister.md` is copied as `README.md`
-into the same directory. A `pluginst.inf` manifest enumerates the plugin DLL,
-runtime dependencies, and documentation so Total Commander installs every
-file into `%COMMANDER_PATH%\plugins\wlx\klogg_lister`. The final distribution
-archive is named:
+into the same directory. A `pluginst.inf` manifest declares the plugin version,
+default directory, plugin type, staged WLX/WLX64 file, and default extensions
+(`LOG LOGX LOGS CEF CLF ELF W3C OUT ERR`, matching the convention used by other
+Total Commander plugins) so
+Total Commander installs every file into
+`%COMMANDER_PATH%\plugins\wlx\klogg_lister`. The final distribution archive is
+named:
 
 ```
 klogg-totalcmd-lister-<version>-<arch>-<qt>.zip
 ```
 
 Total Commander users can install the ZIP directly (press `Enter` on the
-archive inside Total Commander) or extract `klogg_lister.wlx` manually into
+archive inside Total Commander) or extract `klogg_lister.wlx64` manually into
 `%COMMANDER_PATH%\plugins\wlx\klogg_lister`. The CI workflow uploads this
 archive as a release asset so it appears on the GitHub **Releases** page in
-addition to the workflow artifacts.
+addition to the workflow artifacts. The workflow uploads the staged
+`release/totalcmd` directory as an artifact (GitHub zips this directory
+automatically) and separately publishes the validated ZIP created during the
+release job, ensuring there is only a single ZIP layer in the published asset.
 
 ## Installation & usage
 
@@ -101,7 +108,7 @@ addition to the workflow artifacts.
    `%COMMANDER_PATH%\plugins\wlx\klogg_lister`).
 2. In Total Commander, open **Configuration → Options → Plugins → Lister
    plugins** and add `klogg_lister.dll` from the extracted directory.
-3. Enable the plugin for relevant file masks (e.g. `*.log;*.txt`).
+3. Enable the plugin for relevant file masks (e.g. `*.log;*.logx;*.logs;*.cef;*.clf;*.elf;*.w3c;*.out;*.err`).
 4. Press `F3` on a log file to launch the Klogg viewer inside Total Commander.
 
 Keyboard shortcuts align with Total Commander conventions (`Ctrl+C`/`Ctrl+A`

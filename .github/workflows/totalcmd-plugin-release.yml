@@ -2,7 +2,10 @@ name: "Total Commander Plugin Release"
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
+    tags:
+      - '*'
   workflow_dispatch:
     inputs:
       run-tests:
@@ -14,7 +17,7 @@ jobs:
   windows-plugin:
     permissions:
       contents: write
-    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip ci]') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message || '', '[skip ci]') }}
     runs-on: windows-2022
     strategy:
       matrix:
@@ -190,7 +193,7 @@ jobs:
 
             $nested = @($entries | Where-Object { $_.FullName -match '\.zip$' } | Select-Object -ExpandProperty FullName)
             if ($nested.Count -gt 0) {
-              throw "Nested zip(s) found in $out: " + ($nested -join ', ')
+              throw "Nested zip(s) found in ${out}: " + ($nested -join ', ')
             }
           }
           finally {

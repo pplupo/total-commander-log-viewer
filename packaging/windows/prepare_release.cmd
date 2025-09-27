@@ -68,7 +68,14 @@ md %KLOGG_TOTALCMD_ROOT%
 md %KLOGG_TOTALCMD_ROOT%\platforms
 md %KLOGG_TOTALCMD_ROOT%\styles
 
-copy /y "%KLOGG_WORKSPACE%\%KLOGG_BUILD_ROOT%\output\klogg_lister.dll" "%KLOGG_TOTALCMD_ROOT%\klogg_lister.wlx" >nul
+set "KLOGG_TOTALCMD_PLUGIN_FILE=klogg_lister.wlx"
+set "KLOGG_TOTALCMD_PLUGIN_TYPE=wlx"
+if not "%KLOGG_ARCH:64=%"=="%KLOGG_ARCH%" (
+    set "KLOGG_TOTALCMD_PLUGIN_FILE=klogg_lister.wlx64"
+    set "KLOGG_TOTALCMD_PLUGIN_TYPE=wlx64"
+)
+
+copy /y "%KLOGG_WORKSPACE%\%KLOGG_BUILD_ROOT%\output\klogg_lister.dll" "%KLOGG_TOTALCMD_ROOT%\%KLOGG_TOTALCMD_PLUGIN_FILE%" >nul
 
 xcopy %QTDIR%\bin\%KLOGG_QT%Core.dll %KLOGG_TOTALCMD_ROOT%\ /y
 xcopy %QTDIR%\bin\%KLOGG_QT%Gui.dll %KLOGG_TOTALCMD_ROOT%\ /y
@@ -97,14 +104,21 @@ xcopy %KLOGG_WORKSPACE%\NOTICE %KLOGG_TOTALCMD_ROOT%\ /y
 echo "Writing Total Commander auto-install manifest..."
 for %%F in ("%KLOGG_TOTALCMD_ROOT%\pluginst.inf") do del "%%~fF" 2>nul
 powershell -NoLogo -NoProfile -Command ^
+  "Set-StrictMode -Version Latest;" ^
   "$pluginRoot = Join-Path $env:KLOGG_WORKSPACE 'release/totalcmd';" ^
-  "$qtPrefix = $env:KLOGG_QT;" ^
-  "$files = @('klogg_lister.wlx', \"${qtPrefix}Core.dll\", \"${qtPrefix}Gui.dll\", \"${qtPrefix}Network.dll\", \"${qtPrefix}Widgets.dll\", \"${qtPrefix}Concurrent.dll\", \"${qtPrefix}Xml.dll\", \"${qtPrefix}Core5Compat.dll\", 'platforms\\qwindows.dll');" ^
-  "if (Test-Path (Join-Path $pluginRoot 'styles/qwindowsvistastyle.dll')) { $files += 'styles\\qwindowsvistastyle.dll' }" ^
-  "if (Test-Path (Join-Path $pluginRoot 'styles/qmodernwindowsstyle.dll')) { $files += 'styles\\qmodernwindowsstyle.dll' }" ^
-  "$files += 'README.md', 'COPYING', 'NOTICE';" ^
-  "$content = @('[plugininstall]', 'type=wlx', 'description=Klogg Lister Plugin ' + $env:KLOGG_VERSION + ' (' + $env:KLOGG_ARCH + ')', 'targetdir=%COMMANDER_PATH%\\plugins\\wlx\\klogg_lister', '', '[source]') + $files;" ^
-  "Set-Content -Path (Join-Path $pluginRoot 'pluginst.inf') -Value $content -Encoding Ascii"
+  "$pluginFile = $env:KLOGG_TOTALCMD_PLUGIN_FILE;" ^
+  "$pluginType = $env:KLOGG_TOTALCMD_PLUGIN_TYPE;" ^
+  "$lines = @(
+    '[plugininstall]',
+    'version=' + $env:KLOGG_VERSION,
+    'defaultdir=klogg_lister',
+    'type=' + $pluginType,
+    'file=' + $pluginFile,
+    'name=Klogg Log Viewer',
+    'description=Log viewer plugin for Total Commander',
+    'defaultextension=LOG LOGX LOGS CEF CLF ELF W3C OUT ERR'
+  );" ^
+  "Set-Content -Path (Join-Path $pluginRoot 'pluginst.inf') -Value $lines -Encoding Ascii"
 
 md %KLOGG_WORKSPACE%\release\platforms
 xcopy %QTDIR%\plugins\platforms\qwindows.dll %KLOGG_WORKSPACE%\release\platforms\ /y
@@ -137,8 +151,4 @@ set "TBB_PDB_ARGS="
 if exist %KLOGG_WORKSPACE%\release\tbb12.dll set "TBB_PDB_ARGS=%TBB_PDB_ARGS% .\release\tbb12.dll"
 if exist %KLOGG_WORKSPACE%\release\tbb12.pdb set "TBB_PDB_ARGS=%TBB_PDB_ARGS% .\release\tbb12.pdb"
 7z a %KLOGG_WORKSPACE%\klogg-%KLOGG_VERSION%-%KLOGG_ARCH%-%KLOGG_QT%-pdb.zip .\release\klogg.exe .\release\klogg.pdb .\release\klogg_portable.exe .\release\klogg_portable.pdb%TBB_PDB_ARGS%
-pushd "%KLOGG_TOTALCMD_ROOT%"
-7z a -tzip %KLOGG_WORKSPACE%\klogg-totalcmd-lister-%KLOGG_VERSION%-%KLOGG_ARCH%-%KLOGG_QT%.zip *
-popd
-
 echo "Done!"

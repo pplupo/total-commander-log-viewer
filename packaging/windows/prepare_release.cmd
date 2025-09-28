@@ -114,6 +114,12 @@ copy /y "%KLOGG_WORKSPACE%\docs\total_commander_lister.md" "%KLOGG_TOTALCMD_ROOT
 xcopy %KLOGG_WORKSPACE%\COPYING %KLOGG_TOTALCMD_ROOT%\ /y
 xcopy %KLOGG_WORKSPACE%\NOTICE %KLOGG_TOTALCMD_ROOT%\ /y
 
+(
+  echo [Paths]
+  echo Prefix=.
+  echo Plugins=.
+) > "%KLOGG_TOTALCMD_ROOT%\qt.conf"
+
 echo "Writing Total Commander auto-install manifest..."
 for %%F in ("%KLOGG_TOTALCMD_ROOT%\pluginst.inf") do del "%%~fF" 2>nul
 powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%KLOGG_WORKSPACE%\packaging\windows\write_plugin_manifest.ps1" ^

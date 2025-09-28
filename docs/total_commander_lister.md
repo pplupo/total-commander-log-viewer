@@ -77,7 +77,9 @@ is produced during regular Windows CI runs.
 the required Qt runtime modules (`QtCore`, `QtGui`, `QtWidgets`,
 `QtConcurrent`, `QtNetwork`, `QtXml`, `Qt5Compat`, plus the `platforms` and
 `styles` plugins) together with the MSVC runtime, OpenSSL libraries, and the
-`tbb12` runtime when present. The script copies `klogg_lister.dll` to
+`tbb12` runtime when present. A `qt.conf` file is written next to the plugin so
+Qt resolves its bundled `platforms` directory when Total Commander loads the
+module out-of-process. The script copies `klogg_lister.dll` to
 `release/totalcmd/klogg_lister.wlx64` (WLX/WLX64 files are plain DLLs; the 64-bit
 build uses the `.wlx64` suffix expected by Total Commander) and places the
 runtime files alongside it so the plugin can load without additional

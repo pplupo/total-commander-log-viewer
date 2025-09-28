@@ -41,9 +41,15 @@ if (-not $Version) {
     $Version = '0.0.0'
 }
 
-$PluginFile = $PluginFile.Trim()
-$PluginType = $PluginType.Trim()
-$Version = $Version.Trim()
+$sanitize = {
+    param([string]$value)
+    if ($null -eq $value) { return '' }
+    return $value.Trim().Replace("`r", '').Replace("`n", '')
+}
+
+$PluginFile = & $sanitize $PluginFile
+$PluginType = & $sanitize $PluginType
+$Version = & $sanitize $Version
 
 $manifestPath = Join-Path $PluginRoot 'pluginst.inf'
 
@@ -58,4 +64,9 @@ $lines = @(
     'defaultextension=LOG LOGX LOGS CEF CLF ELF W3C OUT ERR'
 )
 
-Set-Content -Path $manifestPath -Value $lines -Encoding Ascii -Force
+$content = ($lines -join "`n") + "`n"
+[System.IO.File]::WriteAllText(
+    $manifestPath,
+    $content,
+    [System.Text.Encoding]::ASCII
+)

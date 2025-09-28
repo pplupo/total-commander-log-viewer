@@ -103,22 +103,11 @@ xcopy %KLOGG_WORKSPACE%\NOTICE %KLOGG_TOTALCMD_ROOT%\ /y
 
 echo "Writing Total Commander auto-install manifest..."
 for %%F in ("%KLOGG_TOTALCMD_ROOT%\pluginst.inf") do del "%%~fF" 2>nul
-powershell -NoLogo -NoProfile -Command ^
-  "Set-StrictMode -Version Latest;" ^
-  "$pluginRoot = Join-Path $env:KLOGG_WORKSPACE 'release/totalcmd';" ^
-  "$pluginFile = $env:KLOGG_TOTALCMD_PLUGIN_FILE;" ^
-  "$pluginType = $env:KLOGG_TOTALCMD_PLUGIN_TYPE;" ^
-  "$lines = @(
-    '[plugininstall]',
-    'version=' + $env:KLOGG_VERSION,
-    'defaultdir=klogg_lister',
-    'type=' + $pluginType,
-    'file=' + $pluginFile,
-    'name=Klogg Log Viewer',
-    'description=Log viewer plugin for Total Commander',
-    'defaultextension=LOG LOGX LOGS CEF CLF ELF W3C OUT ERR'
-  );" ^
-  "Set-Content -Path (Join-Path $pluginRoot 'pluginst.inf') -Value $lines -Encoding Ascii"
+powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%KLOGG_WORKSPACE%\packaging\windows\write_plugin_manifest.ps1" ^
+  -PluginRoot "%KLOGG_TOTALCMD_ROOT%" ^
+  -PluginFile "%KLOGG_TOTALCMD_PLUGIN_FILE%" ^
+  -PluginType "%KLOGG_TOTALCMD_PLUGIN_TYPE%" ^
+  -Version "%KLOGG_VERSION%"
 
 md %KLOGG_WORKSPACE%\release\platforms
 xcopy %QTDIR%\plugins\platforms\qwindows.dll %KLOGG_WORKSPACE%\release\platforms\ /y

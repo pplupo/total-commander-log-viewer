@@ -77,6 +77,15 @@ if not "%KLOGG_ARCH:64=%"=="%KLOGG_ARCH%" (
 
 copy /y "%KLOGG_WORKSPACE%\%KLOGG_BUILD_ROOT%\output\klogg_lister.dll" "%KLOGG_TOTALCMD_ROOT%\%KLOGG_TOTALCMD_PLUGIN_FILE%" >nul
 
+xcopy "%VCToolsRedistDir%%platform%\Microsoft.VC143.CRT\msvcp140.dll" %KLOGG_TOTALCMD_ROOT%\ /y
+xcopy "%VCToolsRedistDir%%platform%\Microsoft.VC143.CRT\msvcp140_1.dll" %KLOGG_TOTALCMD_ROOT%\ /y
+xcopy "%VCToolsRedistDir%%platform%\Microsoft.VC143.CRT\msvcp140_2.dll" %KLOGG_TOTALCMD_ROOT%\ /y
+xcopy "%VCToolsRedistDir%%platform%\Microsoft.VC143.CRT\vcruntime140.dll" %KLOGG_TOTALCMD_ROOT%\ /y
+xcopy "%VCToolsRedistDir%%platform%\Microsoft.VC143.CRT\vcruntime140_1.dll" %KLOGG_TOTALCMD_ROOT%\ /y
+
+xcopy %SSL_DIR%\libcrypto-1_1%SSL_ARCH%.dll %KLOGG_TOTALCMD_ROOT%\ /y
+xcopy %SSL_DIR%\libssl-1_1%SSL_ARCH%.dll %KLOGG_TOTALCMD_ROOT%\ /y
+
 xcopy %QTDIR%\bin\%KLOGG_QT%Core.dll %KLOGG_TOTALCMD_ROOT%\ /y
 xcopy %QTDIR%\bin\%KLOGG_QT%Gui.dll %KLOGG_TOTALCMD_ROOT%\ /y
 xcopy %QTDIR%\bin\%KLOGG_QT%Network.dll %KLOGG_TOTALCMD_ROOT%\ /y
@@ -84,6 +93,10 @@ xcopy %QTDIR%\bin\%KLOGG_QT%Widgets.dll %KLOGG_TOTALCMD_ROOT%\ /y
 xcopy %QTDIR%\bin\%KLOGG_QT%Concurrent.dll %KLOGG_TOTALCMD_ROOT%\ /y
 xcopy %QTDIR%\bin\%KLOGG_QT%Xml.dll %KLOGG_TOTALCMD_ROOT%\ /y
 xcopy %QTDIR%\bin\%KLOGG_QT%Core5Compat.dll %KLOGG_TOTALCMD_ROOT%\ /y
+
+if exist %KLOGG_WORKSPACE%\release\tbb12.dll (
+    xcopy %KLOGG_WORKSPACE%\release\tbb12.dll %KLOGG_TOTALCMD_ROOT%\ /y >nul
+)
 
 xcopy %QTDIR%\plugins\platforms\qwindows.dll %KLOGG_TOTALCMD_ROOT%\platforms\ /y
 if exist %QTDIR%\plugins\styles\qwindowsvistastyle.dll (
@@ -100,6 +113,12 @@ if exist %QTDIR%\plugins\styles\qmodernwindowsstyle.dll (
 copy /y "%KLOGG_WORKSPACE%\docs\total_commander_lister.md" "%KLOGG_TOTALCMD_ROOT%\README.md" >nul
 xcopy %KLOGG_WORKSPACE%\COPYING %KLOGG_TOTALCMD_ROOT%\ /y
 xcopy %KLOGG_WORKSPACE%\NOTICE %KLOGG_TOTALCMD_ROOT%\ /y
+
+(
+  echo [Paths]
+  echo Prefix=.
+  echo Plugins=.
+) > "%KLOGG_TOTALCMD_ROOT%\qt.conf"
 
 echo "Writing Total Commander auto-install manifest..."
 for %%F in ("%KLOGG_TOTALCMD_ROOT%\pluginst.inf") do del "%%~fF" 2>nul

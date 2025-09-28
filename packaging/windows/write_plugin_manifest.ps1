@@ -41,6 +41,10 @@ if (-not $Version) {
     $Version = '0.0.0'
 }
 
+$PluginFile = $PluginFile.Trim()
+$PluginType = $PluginType.Trim()
+$Version = $Version.Trim()
+
 $manifestPath = Join-Path $PluginRoot 'pluginst.inf'
 
 $lines = @(

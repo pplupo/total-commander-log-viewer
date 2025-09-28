@@ -76,10 +76,11 @@ is produced during regular Windows CI runs.
 `packaging/windows/prepare_release.cmd` stages the plugin payload and gathers
 the required Qt runtime modules (`QtCore`, `QtGui`, `QtWidgets`,
 `QtConcurrent`, `QtNetwork`, `QtXml`, `Qt5Compat`, plus the `platforms` and
-`styles` plugins). The script copies `klogg_lister.dll` to
+`styles` plugins) together with the MSVC runtime, OpenSSL libraries, and the
+`tbb12` runtime when present. The script copies `klogg_lister.dll` to
 `release/totalcmd/klogg_lister.wlx64` (WLX/WLX64 files are plain DLLs; the 64-bit
 build uses the `.wlx64` suffix expected by Total Commander) and places the
-Qt runtime files alongside it so the plugin can load without additional
+runtime files alongside it so the plugin can load without additional
 installer steps. `docs/total_commander_lister.md` is copied as `README.md`
 into the same directory. A `pluginst.inf` manifest declares the plugin version,
 default directory, plugin type, staged WLX/WLX64 file, and default extensions

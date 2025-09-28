@@ -9,6 +9,8 @@ on:
 
 jobs:
   release:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -113,7 +115,29 @@ jobs:
       shell: sh
       run: |
         sha256sum --binary ./packages-bin/* ./packages-focal/* ./packages-jammy/* ./packages-noble/* ./packages-oracle/* ./packages-appimage/*  > ./packages-bin/klogg-$KLOGG_VERSION-sha256.txt
-        
+
+    - name: Create GitHub release
+      uses: ncipollo/release-action@v1
+      with:
+        token: ${{ secrets.KLOGG_GITHUB_TOKEN }}
+        tag: v${{ env.KLOGG_VERSION }}
+        name: Klogg ${{ env.KLOGG_VERSION }}
+        body: |
+          Automated release generated from CI build artifacts for version ${{ env.KLOGG_VERSION }}.
+        commit: ${{ github.sha }}
+        allowUpdates: true
+        generateReleaseNotes: true
+        artifacts: |
+          ./packages-windows-x86-qt5/*
+          ./packages-windows-x64-qt6/*
+          ./packages-focal/*
+          ./packages-jammy/*
+          ./packages-noble/*
+          ./packages-oracle/*
+          ./packages-appimage/*
+          ./packages-bin/*
+          ./linux-debug/*
+
     - name: Release win
       uses: "marvinpinto/action-automatic-releases@latest"
       with:

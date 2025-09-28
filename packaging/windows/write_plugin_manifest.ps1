@@ -41,9 +41,15 @@ if (-not $Version) {
     $Version = '0.0.0'
 }
 
-$PluginFile = $PluginFile.Trim()
-$PluginType = $PluginType.Trim()
-$Version = $Version.Trim()
+$sanitize = {
+    param([string]$value)
+    if ($null -eq $value) { return '' }
+    return $value.Trim().Replace("`r", '').Replace("`n", '')
+}
+
+$PluginFile = & $sanitize $PluginFile
+$PluginType = & $sanitize $PluginType
+$Version = & $sanitize $Version
 
 $manifestPath = Join-Path $PluginRoot 'pluginst.inf'
 

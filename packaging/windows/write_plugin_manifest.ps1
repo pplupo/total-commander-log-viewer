@@ -58,4 +58,9 @@ $lines = @(
     'defaultextension=LOG LOGX LOGS CEF CLF ELF W3C OUT ERR'
 )
 
-Set-Content -Path $manifestPath -Value $lines -Encoding Ascii -Force
+$content = ($lines -join "`n") + "`n"
+[System.IO.File]::WriteAllText(
+    $manifestPath,
+    $content,
+    [System.Text.Encoding]::ASCII
+)

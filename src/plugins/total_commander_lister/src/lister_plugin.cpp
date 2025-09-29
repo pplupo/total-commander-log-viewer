@@ -153,6 +153,105 @@ void initializeLogging()
     previousMessageHandler() = qInstallMessageHandler( qtLogHandler );
 }
 
+QString pluginDirectory()
+{
+    static QString directory;
+    static bool resolved = false;
+    if ( resolved ) {
+        return directory;
+    }
+    resolved = true;
+
+    HMODULE module = nullptr;
+    if ( GetModuleHandleExW( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                             reinterpret_cast<LPCWSTR>( &pluginDirectory ), &module ) ) {
+        wchar_t modulePath[MAX_PATH];
+        const DWORD length = GetModuleFileNameW( module, modulePath, MAX_PATH );
+        if ( length != 0 && length < MAX_PATH ) {
+            QFileInfo info( QString::fromWCharArray( modulePath, static_cast<int>( length ) ) );
+            directory = info.absolutePath();
+            writeLogLine( QStringLiteral( "DEBUG" ),
+                          QStringLiteral( "plugin directory resolved to '%1'" )
+                              .arg( QDir::toNativeSeparators( directory ) ) );
+        } else {
+            writeLogLine( QStringLiteral( "WARNING" ),
+                          QStringLiteral( "failed to resolve plugin directory, error=%1" )
+                              .arg( QString::number( GetLastError() ) ) );
+        }
+    } else {
+        writeLogLine( QStringLiteral( "WARNING" ),
+                      QStringLiteral( "GetModuleHandleExW failed, error=%1" )
+                          .arg( QString::number( GetLastError() ) ) );
+    }
+
+    return directory;
+}
+
+QString ensureQtPlatformPluginPath()
+{
+    static bool attempted = false;
+    static QString platformPath;
+    if ( attempted ) {
+        return platformPath;
+    }
+    attempted = true;
+
+    const QString baseDirectory = pluginDirectory();
+    QStringList candidateDirectories;
+    if ( !baseDirectory.isEmpty() ) {
+        candidateDirectories << QDir( baseDirectory ).filePath( QStringLiteral( "platforms" ) );
+        candidateDirectories << QDir( baseDirectory ).filePath( QStringLiteral( "qt6/plugins/platforms" ) );
+        candidateDirectories << QDir( baseDirectory ).filePath( QStringLiteral( "qt5/plugins/platforms" ) );
+    }
+
+    for ( const QString& candidate : candidateDirectories ) {
+        if ( candidate.isEmpty() ) {
+            continue;
+        }
+
+        const QString normalizedPath = QDir( candidate ).absolutePath();
+        writeLogLine( QStringLiteral( "DEBUG" ),
+                      QStringLiteral( "checking directory path '%1' ..." )
+                          .arg( QDir::toNativeSeparators( normalizedPath ) ) );
+
+        const QString pluginFile = QDir( normalizedPath ).filePath( QStringLiteral( "qwindows.dll" ) );
+        if ( QFileInfo::exists( pluginFile ) ) {
+            platformPath = normalizedPath;
+            const QByteArray encodedPath = QDir::toNativeSeparators( platformPath ).toLocal8Bit();
+            qputenv( "QT_QPA_PLATFORM_PLUGIN_PATH", encodedPath );
+            writeLogLine( QStringLiteral( "plugin" ),
+                          QStringLiteral( "Qt platform plugin path set to '%1'" )
+                              .arg( QDir::toNativeSeparators( platformPath ) ) );
+            break;
+        }
+
+        writeLogLine( QStringLiteral( "WARNING" ),
+                      QStringLiteral( "Could not find the Qt platform plugin 'windows' in '%1'" )
+                          .arg( QDir::toNativeSeparators( normalizedPath ) ) );
+    }
+
+    if ( platformPath.isEmpty() ) {
+        writeLogLine( QStringLiteral( "WARNING" ),
+                      QStringLiteral( "Failed to locate a Qt platform plugins directory" ) );
+    }
+
+    return platformPath;
+}
+
+void ensureQtPlatformLibraryPath( const QString& platformPath )
+{
+    static bool added = false;
+    if ( added || platformPath.isEmpty() ) {
+        return;
+    }
+
+    const QString nativePath = QDir::toNativeSeparators( platformPath );
+    QCoreApplication::addLibraryPath( platformPath );
+    added = true;
+    writeLogLine( QStringLiteral( "plugin" ),
+                  QStringLiteral( "Qt library search path augmented with '%1'" ).arg( nativePath ) );
+}
+
 PluginState& state()
 {
     static PluginState instance;
@@ -171,6 +270,7 @@ void ensureQtApplication()
     initializeLogging();
     writeLogLine( QStringLiteral( "plugin" ), QStringLiteral( "ensuring Qt application" ) );
 
+    const QString platformPath = ensureQtPlatformPluginPath();
     auto& st = state();
     if ( !QCoreApplication::instance() ) {
         int argc = 0;
@@ -179,6 +279,8 @@ void ensureQtApplication()
         st.app = std::make_unique<QApplication>( argc, argv );
         writeLogLine( QStringLiteral( "plugin" ), QStringLiteral( "QApplication created" ) );
     }
+
+    ensureQtPlatformLibraryPath( platformPath );
 
     if ( !st.settingsInitialized ) {
         st.settingsInitialized = true;

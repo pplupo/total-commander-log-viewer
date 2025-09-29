@@ -4,13 +4,7 @@ param(
     [string]$PluginRoot = $(if ($env:KLOGG_WORKSPACE) { Join-Path $env:KLOGG_WORKSPACE 'release/totalcmd' } else { '' }),
 
     [Parameter()]
-    [string]$Version = $env:KLOGG_VERSION,
-
-    [Parameter()]
-    [string]$PluginFile,
-
-    [Parameter()]
-    [string]$PluginType
+    [string]$Version = $env:KLOGG_VERSION
 )
 
 Set-StrictMode -Version Latest
@@ -23,35 +17,49 @@ if (-not (Test-Path -LiteralPath $PluginRoot)) {
     throw "Plugin root '$PluginRoot' does not exist."
 }
 
-$arch = $env:KLOGG_ARCH
-$defaultIs64 = $false
-if ($arch -and ($arch -match '64')) {
-    $defaultIs64 = $true
+if (-not $Version) {
+    $Version = '0.0.0'
 }
 
-if (-not $PluginFile) {
-    $PluginFile = if ($defaultIs64) { 'klogg_lister.wlx64' } else { 'klogg_lister.wlx' }
+$sanitize = {
+    param([string]$value)
+    if ($null -eq $value) { return '' }
+    return $value.Trim().Replace("`r", '').Replace("`n", '')
 }
 
-if (-not $PluginType) {
-    $PluginType = if ($defaultIs64) { 'wlx64' } else { 'wlx' }
-}
-
+$Version = & $sanitize $Version
 if (-not $Version) {
     $Version = '0.0.0'
 }
 
 $manifestPath = Join-Path $PluginRoot 'pluginst.inf'
+if (-not (Test-Path -LiteralPath $manifestPath)) {
+    throw "Manifest file '$manifestPath' does not exist."
+}
 
-$lines = @(
-    '[plugininstall]',
-    'version=' + $Version,
-    'defaultdir=klogg_lister',
-    'type=' + $PluginType,
-    'file=' + $PluginFile,
-    'name=Klogg Log Viewer',
-    'description=Log viewer plugin for Total Commander',
-    'defaultextension=LOG LOGX LOGS CEF CLF ELF W3C OUT ERR'
+$content = [System.IO.File]::ReadAllText($manifestPath, [System.Text.Encoding]::ASCII)
+if (-not $content) {
+    $content = ''
+}
+
+$pattern = '^(version=).*$'
+if (-not [System.Text.RegularExpressions.Regex]::IsMatch($content, $pattern, [System.Text.RegularExpressions.RegexOptions]::Multiline)) {
+    throw "Manifest file '$manifestPath' is missing a version entry."
+}
+
+$newContent = [System.Text.RegularExpressions.Regex]::Replace(
+    $content,
+    $pattern,
+    "`$1$Version",
+    [System.Text.RegularExpressions.RegexOptions]::Multiline
 )
 
-Set-Content -Path $manifestPath -Value $lines -Encoding Ascii -Force
+if (-not $newContent.EndsWith("`n")) {
+    $newContent += "`n"
+}
+
+[System.IO.File]::WriteAllText(
+    $manifestPath,
+    $newContent,
+    [System.Text.Encoding]::ASCII
+)

@@ -62,6 +62,14 @@ xcopy %QTDIR%\bin\%KLOGG_QT%Concurrent.dll %KLOGG_WORKSPACE%\release\ /y
 xcopy %QTDIR%\bin\%KLOGG_QT%Xml.dll %KLOGG_WORKSPACE%\release\ /y
 xcopy %QTDIR%\bin\%KLOGG_QT%Core5Compat.dll %KLOGG_WORKSPACE%\release\ /y
 
+for %%F in (d3dcompiler_47.dll libEGL.dll libGLESv2.dll opengl32sw.dll) do (
+    if exist "%QTDIR%\bin\%%F" (
+        xcopy "%QTDIR%\bin\%%F" %KLOGG_WORKSPACE%\release\ /y
+    ) else (
+        echo "Warning: %QTDIR%\bin\%%F not found for main runtime"
+    )
+)
+
 echo "Staging Total Commander lister plugin runtime..."
 set "KLOGG_TOTALCMD_ROOT=%KLOGG_WORKSPACE%\release\totalcmd"
 md %KLOGG_TOTALCMD_ROOT%
@@ -77,6 +85,15 @@ if not "%KLOGG_ARCH:64=%"=="%KLOGG_ARCH%" (
 
 copy /y "%KLOGG_WORKSPACE%\%KLOGG_BUILD_ROOT%\output\klogg_lister.dll" "%KLOGG_TOTALCMD_ROOT%\%KLOGG_TOTALCMD_PLUGIN_FILE%" >nul
 
+xcopy "%VCToolsRedistDir%%platform%\Microsoft.VC143.CRT\msvcp140.dll" %KLOGG_TOTALCMD_ROOT%\ /y
+xcopy "%VCToolsRedistDir%%platform%\Microsoft.VC143.CRT\msvcp140_1.dll" %KLOGG_TOTALCMD_ROOT%\ /y
+xcopy "%VCToolsRedistDir%%platform%\Microsoft.VC143.CRT\msvcp140_2.dll" %KLOGG_TOTALCMD_ROOT%\ /y
+xcopy "%VCToolsRedistDir%%platform%\Microsoft.VC143.CRT\vcruntime140.dll" %KLOGG_TOTALCMD_ROOT%\ /y
+xcopy "%VCToolsRedistDir%%platform%\Microsoft.VC143.CRT\vcruntime140_1.dll" %KLOGG_TOTALCMD_ROOT%\ /y
+
+xcopy %SSL_DIR%\libcrypto-1_1%SSL_ARCH%.dll %KLOGG_TOTALCMD_ROOT%\ /y
+xcopy %SSL_DIR%\libssl-1_1%SSL_ARCH%.dll %KLOGG_TOTALCMD_ROOT%\ /y
+
 xcopy %QTDIR%\bin\%KLOGG_QT%Core.dll %KLOGG_TOTALCMD_ROOT%\ /y
 xcopy %QTDIR%\bin\%KLOGG_QT%Gui.dll %KLOGG_TOTALCMD_ROOT%\ /y
 xcopy %QTDIR%\bin\%KLOGG_QT%Network.dll %KLOGG_TOTALCMD_ROOT%\ /y
@@ -84,6 +101,18 @@ xcopy %QTDIR%\bin\%KLOGG_QT%Widgets.dll %KLOGG_TOTALCMD_ROOT%\ /y
 xcopy %QTDIR%\bin\%KLOGG_QT%Concurrent.dll %KLOGG_TOTALCMD_ROOT%\ /y
 xcopy %QTDIR%\bin\%KLOGG_QT%Xml.dll %KLOGG_TOTALCMD_ROOT%\ /y
 xcopy %QTDIR%\bin\%KLOGG_QT%Core5Compat.dll %KLOGG_TOTALCMD_ROOT%\ /y
+
+if exist %KLOGG_WORKSPACE%\release\tbb12.dll (
+    xcopy %KLOGG_WORKSPACE%\release\tbb12.dll %KLOGG_TOTALCMD_ROOT%\ /y >nul
+)
+
+for %%F in (d3dcompiler_47.dll libEGL.dll libGLESv2.dll opengl32sw.dll) do (
+    if exist "%QTDIR%\bin\%%F" (
+        xcopy "%QTDIR%\bin\%%F" %KLOGG_TOTALCMD_ROOT%\ /y
+    ) else (
+        echo "Warning: %QTDIR%\bin\%%F not found for lister plugin"
+    )
+)
 
 xcopy %QTDIR%\plugins\platforms\qwindows.dll %KLOGG_TOTALCMD_ROOT%\platforms\ /y
 if exist %QTDIR%\plugins\styles\qwindowsvistastyle.dll (
@@ -101,12 +130,16 @@ copy /y "%KLOGG_WORKSPACE%\docs\total_commander_lister.md" "%KLOGG_TOTALCMD_ROOT
 xcopy %KLOGG_WORKSPACE%\COPYING %KLOGG_TOTALCMD_ROOT%\ /y
 xcopy %KLOGG_WORKSPACE%\NOTICE %KLOGG_TOTALCMD_ROOT%\ /y
 
+(
+  echo [Paths]
+  echo Prefix=.
+  echo Plugins=.
+) > "%KLOGG_TOTALCMD_ROOT%\qt.conf"
+
 echo "Writing Total Commander auto-install manifest..."
-for %%F in ("%KLOGG_TOTALCMD_ROOT%\pluginst.inf") do del "%%~fF" 2>nul
+copy /y "%KLOGG_WORKSPACE%\packaging\windows\pluginst.inf" "%KLOGG_TOTALCMD_ROOT%\pluginst.inf" >nul
 powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%KLOGG_WORKSPACE%\packaging\windows\write_plugin_manifest.ps1" ^
   -PluginRoot "%KLOGG_TOTALCMD_ROOT%" ^
-  -PluginFile "%KLOGG_TOTALCMD_PLUGIN_FILE%" ^
-  -PluginType "%KLOGG_TOTALCMD_PLUGIN_TYPE%" ^
   -Version "%KLOGG_VERSION%"
 
 md %KLOGG_WORKSPACE%\release\platforms

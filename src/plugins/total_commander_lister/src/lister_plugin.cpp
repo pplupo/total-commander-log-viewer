@@ -5,9 +5,19 @@
 #include <unordered_map>
 
 #include <QApplication>
+#include <QByteArray>
 #include <QCoreApplication>
+#include <QDateTime>
+#include <QDir>
 #include <QEventLoop>
+#include <QFile>
+#include <QFileInfo>
+#include <QIODevice>
+#include <QLatin1Char>
+#include <QLatin1String>
 #include <QString>
+#include <QStringList>
+#include <QTextStream>
 #include <QtGlobal>
 
 #include "configuration.h"
@@ -26,6 +36,123 @@ struct PluginState {
     bool settingsInitialized = false;
 };
 
+QFile& logFile()
+{
+    static QFile file;
+    return file;
+}
+
+std::mutex& logMutex()
+{
+    static std::mutex mutex;
+    return mutex;
+}
+
+QtMessageHandler& previousMessageHandler()
+{
+    static QtMessageHandler handler = nullptr;
+    return handler;
+}
+
+QString messageTypeName( QtMsgType type )
+{
+    switch ( type ) {
+    case QtDebugMsg:
+        return QStringLiteral( "DEBUG" );
+    case QtInfoMsg:
+        return QStringLiteral( "INFO" );
+    case QtWarningMsg:
+        return QStringLiteral( "WARNING" );
+    case QtCriticalMsg:
+        return QStringLiteral( "CRITICAL" );
+    case QtFatalMsg:
+        return QStringLiteral( "FATAL" );
+    }
+
+    return QStringLiteral( "UNKNOWN" );
+}
+
+void writeLogLine( const QString& category, const QString& message )
+{
+    auto& file = logFile();
+    if ( !file.isOpen() ) {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock( logMutex() );
+    QTextStream stream( &file );
+    stream << QDateTime::currentDateTime().toString( Qt::ISODateWithMs ) << " [" << category << "] "
+           << message << Qt::endl;
+    stream.flush();
+}
+
+void qtLogHandler( QtMsgType type, const QMessageLogContext& context, const QString& msg )
+{
+    QStringList fragments;
+    fragments << messageTypeName( type );
+
+    if ( context.file && context.file[0] ) {
+        fragments << QString::fromUtf8( context.file ) + QLatin1Char( ':' ) + QString::number( context.line );
+    }
+
+    writeLogLine( fragments.join( QLatin1String( "|" ) ), msg );
+
+    if ( auto handler = previousMessageHandler() ) {
+        handler( type, context, msg );
+    }
+}
+
+QString resolveLogPath()
+{
+    const QString environmentPath = qEnvironmentVariable( "KLOGG_LISTER_LOG" ).trimmed();
+    if ( !environmentPath.isEmpty() ) {
+        return environmentPath;
+    }
+
+    wchar_t tempPathBuffer[MAX_PATH];
+    const DWORD length = GetTempPathW( MAX_PATH, tempPathBuffer );
+    if ( length == 0 || length >= MAX_PATH ) {
+        return {};
+    }
+
+    QString basePath = QString::fromWCharArray( tempPathBuffer, static_cast<int>( length ) );
+    QDir dir( basePath );
+    return dir.filePath( QStringLiteral( "klogg_lister_qt.log" ) );
+}
+
+void initializeLogging()
+{
+    static bool initialized = false;
+    if ( initialized ) {
+        return;
+    }
+    initialized = true;
+
+    qputenv( "QT_DEBUG_PLUGINS", QByteArrayLiteral( "1" ) );
+
+    const QString logPath = resolveLogPath();
+    if ( logPath.isEmpty() ) {
+        return;
+    }
+
+    QFileInfo info( logPath );
+    QDir directory = info.dir();
+    if ( !directory.exists() ) {
+        directory.mkpath( QStringLiteral( "." ) );
+    }
+
+    auto& file = logFile();
+    file.setFileName( logPath );
+    if ( !file.open( QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text ) ) {
+        return;
+    }
+
+    writeLogLine( QStringLiteral( "plugin" ),
+                  QStringLiteral( "logging initialized at %1" ).arg( QDir::toNativeSeparators( logPath ) ) );
+
+    previousMessageHandler() = qInstallMessageHandler( qtLogHandler );
+}
+
 PluginState& state()
 {
     static PluginState instance;
@@ -41,12 +168,16 @@ void processQtEvents()
 
 void ensureQtApplication()
 {
+    initializeLogging();
+    writeLogLine( QStringLiteral( "plugin" ), QStringLiteral( "ensuring Qt application" ) );
+
     auto& st = state();
     if ( !QCoreApplication::instance() ) {
         int argc = 0;
         static char appName[] = "klogg_lister";
         static char* argv[] = { appName, nullptr };
         st.app = std::make_unique<QApplication>( argc, argv );
+        writeLogLine( QStringLiteral( "plugin" ), QStringLiteral( "QApplication created" ) );
     }
 
     if ( !st.settingsInitialized ) {
@@ -55,6 +186,7 @@ void ensureQtApplication()
                                                  QStringLiteral( "klogg_lister_session" ) );
         PersistentInfo::overridePortableMode( true );
         Configuration::getSynced();
+        writeLogLine( QStringLiteral( "plugin" ), QStringLiteral( "settings initialized" ) );
     }
 }
 
@@ -72,12 +204,17 @@ HWND createViewerWindow( HWND parent, const QString& filePath, int showFlags )
 {
     ensureQtApplication();
 
+    writeLogLine( QStringLiteral( "plugin" ),
+                  QStringLiteral( "creating viewer window for '%1'" ).arg( QDir::toNativeSeparators( filePath ) ) );
+
     auto viewer = std::make_unique<ListerViewerWidget>();
     viewer->setAttribute( Qt::WA_NativeWindow );
     viewer->setWindowFlag( Qt::FramelessWindowHint );
     viewer->applyShowFlags( showFlags );
 
     if ( !viewer->loadFile( filePath ) ) {
+        writeLogLine( QStringLiteral( "plugin" ),
+                      QStringLiteral( "failed to load file '%1'" ).arg( QDir::toNativeSeparators( filePath ) ) );
         return nullptr;
     }
 

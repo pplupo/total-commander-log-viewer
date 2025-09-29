@@ -4,7 +4,13 @@ param(
     [string]$PluginRoot = $(if ($env:KLOGG_WORKSPACE) { Join-Path $env:KLOGG_WORKSPACE 'release/totalcmd' } else { '' }),
 
     [Parameter()]
-    [string]$Version = $env:KLOGG_VERSION
+    [string]$Version = $env:KLOGG_VERSION,
+
+    [Parameter()]
+    [string]$PluginFile,
+
+    [Parameter()]
+    [string]$PluginType
 )
 
 Set-StrictMode -Version Latest
@@ -32,6 +38,9 @@ if (-not $Version) {
     $Version = '0.0.0'
 }
 
+$PluginFile = & $sanitize $PluginFile
+$PluginType = & $sanitize $PluginType
+
 $manifestPath = Join-Path $PluginRoot 'pluginst.inf'
 if (-not (Test-Path -LiteralPath $manifestPath)) {
     throw "Manifest file '$manifestPath' does not exist."
@@ -42,17 +51,47 @@ if (-not $content) {
     $content = ''
 }
 
-$pattern = '^(version=).*$'
-if (-not [System.Text.RegularExpressions.Regex]::IsMatch($content, $pattern, [System.Text.RegularExpressions.RegexOptions]::Multiline)) {
-    throw "Manifest file '$manifestPath' is missing a version entry."
+$options = [System.Text.RegularExpressions.RegexOptions]::Multiline
+
+$ensureEntry = {
+    param([string]$pattern, [string]$valueDescription)
+    if (-not [System.Text.RegularExpressions.Regex]::IsMatch($content, $pattern, $options)) {
+        throw "Manifest file '$manifestPath' is missing a $valueDescription entry."
+    }
 }
 
+$newContent = $content
+
+$versionPattern = '^(version=).*$'
+& $ensureEntry $versionPattern 'version'
 $newContent = [System.Text.RegularExpressions.Regex]::Replace(
-    $content,
-    $pattern,
+    $newContent,
+    $versionPattern,
     "`$1$Version",
-    [System.Text.RegularExpressions.RegexOptions]::Multiline
+    $options
 )
+
+if ($PluginFile) {
+    $filePattern = '^(file=).*$'
+    & $ensureEntry $filePattern 'file'
+    $newContent = [System.Text.RegularExpressions.Regex]::Replace(
+        $newContent,
+        $filePattern,
+        "`$1$PluginFile",
+        $options
+    )
+}
+
+if ($PluginType) {
+    $typePattern = '^(type=).*$'
+    & $ensureEntry $typePattern 'type'
+    $newContent = [System.Text.RegularExpressions.Regex]::Replace(
+        $newContent,
+        $typePattern,
+        "`$1$PluginType",
+        $options
+    )
+}
 
 if (-not $newContent.EndsWith("`n")) {
     $newContent += "`n"

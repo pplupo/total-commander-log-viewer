@@ -76,10 +76,16 @@ is produced during regular Windows CI runs.
 `packaging/windows/prepare_release.cmd` stages the plugin payload and gathers
 the required Qt runtime modules (`QtCore`, `QtGui`, `QtWidgets`,
 `QtConcurrent`, `QtNetwork`, `QtXml`, `Qt5Compat`, plus the `platforms` and
-`styles` plugins). The script copies `klogg_lister.dll` to
+`styles` plugins) together with the MSVC runtime, OpenSSL libraries, and the
+`tbb12` runtime when present. The script also copies Qt's ANGLE dependencies
+(`d3dcompiler_47.dll`, `libEGL.dll`, `libGLESv2.dll`, `opengl32sw.dll`) so the
+bundled `qwindows` platform plugin can resolve its Direct3D/OpenGL helpers even
+when Total Commander loads the plugin from a standalone directory. A `qt.conf`
+file is written next to the plugin so Qt resolves its bundled `platforms`
+directory when Total Commander loads the module out-of-process. The script copies `klogg_lister.dll` to
 `release/totalcmd/klogg_lister.wlx64` (WLX/WLX64 files are plain DLLs; the 64-bit
 build uses the `.wlx64` suffix expected by Total Commander) and places the
-Qt runtime files alongside it so the plugin can load without additional
+runtime files alongside it so the plugin can load without additional
 installer steps. `docs/total_commander_lister.md` is copied as `README.md`
 into the same directory. A `pluginst.inf` manifest declares the plugin version,
 default directory, plugin type, staged WLX/WLX64 file, and default extensions
@@ -101,6 +107,14 @@ addition to the workflow artifacts. The workflow uploads the staged
 `release/totalcmd` directory as an artifact (GitHub zips this directory
 automatically) and separately publishes the validated ZIP created during the
 release job, ensuring there is only a single ZIP layer in the published asset.
+
+## Troubleshooting
+
+Set the `KLOGG_LISTER_LOG` environment variable to an absolute path before
+launching Total Commander to capture Qt diagnostics (including
+`QT_DEBUG_PLUGINS` output) into a file. When unset, the plugin falls back to
+`%TEMP%\klogg_lister_qt.log`. The log records viewer lifecycle events and Qt's
+plugin loader messages, which helps diagnose missing runtime dependencies.
 
 ## Installation & usage
 

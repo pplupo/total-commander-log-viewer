@@ -53,23 +53,42 @@ if (-not $content) {
 
 $options = [System.Text.RegularExpressions.RegexOptions]::Multiline
 
-$ensureEntry = {
-    param([string]$pattern, [string]$valueDescription)
-    if (-not [System.Text.RegularExpressions.Regex]::IsMatch($content, $pattern, $options)) {
-        throw "Manifest file '$manifestPath' is missing a $valueDescription entry."
+function Set-ManifestEntry {
+    param(
+        [string]$currentContent,
+        [string]$entryName,
+        [string]$entryValue
+    )
+
+    $pattern = "^(" + [System.Text.RegularExpressions.Regex]::Escape($entryName) + "=).*$"
+    $updated = [System.Text.RegularExpressions.Regex]::Replace(
+        $currentContent,
+        $pattern,
+        "`$1$entryValue",
+        $options
+    )
+
+    if ($updated -ne $currentContent) {
+        return $updated
     }
+
+    $suffixNewLine = ''
+    if ($currentContent -and -not $currentContent.EndsWith("`n")) {
+        $suffixNewLine = "`n"
+    }
+
+    return $currentContent + $suffixNewLine + "$entryName=$entryValue`n"
 }
 
-$newContent = $content
+$newContent = Set-ManifestEntry -currentContent $content -entryName 'version' -entryValue $Version
 
-$versionPattern = '^(version=).*$'
-& $ensureEntry $versionPattern 'version'
-$newContent = [System.Text.RegularExpressions.Regex]::Replace(
-    $newContent,
-    $versionPattern,
-    "`$1$Version",
-    $options
-)
+if ($PluginFile) {
+    $newContent = Set-ManifestEntry -currentContent $newContent -entryName 'file' -entryValue $PluginFile
+}
+
+if ($PluginType) {
+    $newContent = Set-ManifestEntry -currentContent $newContent -entryName 'type' -entryValue $PluginType
+}
 
 if ($PluginFile) {
     $filePattern = '^(file=).*$'

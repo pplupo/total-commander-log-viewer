@@ -1,0 +1,8 @@
+[plugininstall]
+version=0.0.0
+defaultdir=klogg_lister
+type=wlx64
+file=klogg_lister.wlx64
+name=Klogg Log Viewer
+description=Log viewer plugin for Total Commander
+defaultextension=LOG LOGX LOGS CEF CLF ELF W3C OUT ERR

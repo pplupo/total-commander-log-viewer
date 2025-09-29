@@ -192,7 +192,8 @@ jobs:
 
           & $manifestScript -PluginRoot $stage -Version $env:KLOGG_VERSION -PluginFile $pluginFile -PluginType $pluginType
 
-          $out = Join-Path $env:KLOGG_WORKSPACE ("klogg-totalcmd-lister-" + $env:KLOGG_VERSION + "-" + $env:KLOGG_ARCH + "-" + $env:KLOGG_QT + ".zip")
+          $packageName = "klogg-totalcmd-lister-" + $env:KLOGG_VERSION + "-" + $env:KLOGG_ARCH + "-" + $env:KLOGG_QT + ".zip"
+          $out = Join-Path $env:KLOGG_WORKSPACE $packageName
           Remove-Item -LiteralPath $out -Force -ErrorAction SilentlyContinue
 
           $pluginManifest = Join-Path $stage 'pluginst.inf'
@@ -230,22 +231,22 @@ jobs:
             throw "Expected plugin archive not found at $out"
           }
 
-          "PLUGIN_PACKAGE=$out" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $outPosix = $out -replace '\\', '/'
+          "PLUGIN_PACKAGE=$packageName" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PLUGIN_PACKAGE_PATH=$outPosix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Upload plugin artifact
         uses: actions/upload-artifact@v4
         with:
           name: klogg-totalcmd-lister-${{ env.KLOGG_VERSION }}-${{ env.KLOGG_ARCH }}-${{ env.KLOGG_QT }}
-          path: |
-            release/totalcmd/
-            ${{ env.PLUGIN_PACKAGE }}
+          path: ${{ env.PLUGIN_PACKAGE }}
           if-no-files-found: error
 
       - name: Publish Total Commander plugin release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ env.PLUGIN_PACKAGE }}
+          files: ${{ env.PLUGIN_PACKAGE_PATH }}
           generate_release_notes: true
           name: Total Commander Plugin ${{ env.KLOGG_VERSION }}
           fail_on_unmatched_files: true
@@ -254,9 +255,13 @@ jobs:
 
       - name: Publish continuous plugin release
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        uses: marvinpinto/action-automatic-releases@latest
+        uses: softprops/action-gh-release@v2
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          automatic_release_tag: continuous-totalcmd
+          tag_name: continuous-totalcmd
+          name: Continuous Total Commander Plugin
           prerelease: true
-          files: ${{ env.PLUGIN_PACKAGE }}
+          files: ${{ env.PLUGIN_PACKAGE_PATH }}
+          generate_release_notes: false
+          target_commitish: ${{ github.sha }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

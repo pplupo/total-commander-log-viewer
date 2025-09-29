@@ -119,7 +119,7 @@ jobs:
     - name: Create GitHub release
       uses: ncipollo/release-action@v1
       with:
-        token: ${{ secrets.KLOGG_GITHUB_TOKEN }}
+        token: ${{ secrets.KLOGG_GITHUB_TOKEN != '' && secrets.KLOGG_GITHUB_TOKEN || github.token }}
         tag: v${{ env.KLOGG_VERSION }}
         name: Klogg ${{ env.KLOGG_VERSION }}
         body: |
@@ -141,7 +141,7 @@ jobs:
     - name: Release win
       uses: "marvinpinto/action-automatic-releases@latest"
       with:
-        repo_token: ${{ secrets.KLOGG_GITHUB_TOKEN }}
+        repo_token: ${{ secrets.KLOGG_GITHUB_TOKEN != '' && secrets.KLOGG_GITHUB_TOKEN || github.token }}
         automatic_release_tag: continuous-win
         prerelease: true
         files: |
@@ -151,7 +151,7 @@ jobs:
     - name: Release linux
       uses: "marvinpinto/action-automatic-releases@latest"
       with:
-        repo_token: ${{ secrets.KLOGG_GITHUB_TOKEN }}
+        repo_token: ${{ secrets.KLOGG_GITHUB_TOKEN != '' && secrets.KLOGG_GITHUB_TOKEN || github.token }}
         automatic_release_tag: continuous-linux
         prerelease: true
         files: |
@@ -166,7 +166,7 @@ jobs:
     - name: Release mac
       uses: "marvinpinto/action-automatic-releases@latest"
       with:
-        repo_token: ${{ secrets.KLOGG_GITHUB_TOKEN }}
+        repo_token: ${{ secrets.KLOGG_GITHUB_TOKEN != '' && secrets.KLOGG_GITHUB_TOKEN || github.token }}
         automatic_release_tag: continuous-osx
         prerelease: true
         files: |

@@ -226,18 +226,37 @@ jobs:
             $zip.Dispose()
           }
 
+          if (-not (Test-Path -LiteralPath $out)) {
+            throw "Expected plugin archive not found at $out"
+          }
+
+          "PLUGIN_PACKAGE=$out" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Upload plugin artifact
         uses: actions/upload-artifact@v4
         with:
           name: klogg-totalcmd-lister-${{ env.KLOGG_VERSION }}-${{ env.KLOGG_ARCH }}-${{ env.KLOGG_QT }}
-          path: release/totalcmd/
+          path: |
+            release/totalcmd/
+            ${{ env.PLUGIN_PACKAGE }}
           if-no-files-found: error
 
-      - name: Publish plugin release
+      - name: Publish Total Commander plugin release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.PLUGIN_PACKAGE }}
+          generate_release_notes: true
+          name: Total Commander Plugin ${{ env.KLOGG_VERSION }}
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish continuous plugin release
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: marvinpinto/action-automatic-releases@latest
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           automatic_release_tag: continuous-totalcmd
           prerelease: true
-          files: |
-            klogg-totalcmd-lister-${{ env.KLOGG_VERSION }}-${{ env.KLOGG_ARCH }}-${{ env.KLOGG_QT }}.zip
+          files: ${{ env.PLUGIN_PACKAGE }}

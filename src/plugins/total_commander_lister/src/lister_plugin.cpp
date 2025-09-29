@@ -1,5 +1,6 @@
 #include <windows.h>
 
+#include <algorithm>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -241,15 +242,35 @@ QString ensureQtPlatformPluginPath()
 void ensureQtPlatformLibraryPath( const QString& platformPath )
 {
     static bool added = false;
-    if ( added || platformPath.isEmpty() ) {
+    if ( added ) {
         return;
     }
 
-    const QString nativePath = QDir::toNativeSeparators( platformPath );
-    QCoreApplication::addLibraryPath( platformPath );
+    auto addLibraryPath = []( const QString& path ) {
+        if ( path.isEmpty() ) {
+            return false;
+        }
+
+        const QString normalizedPath = QDir( path ).absolutePath();
+        const auto paths = QCoreApplication::libraryPaths();
+        if ( std::any_of( paths.cbegin(), paths.cend(),
+                          [&]( const QString& existing ) {
+                              return existing.compare( normalizedPath, Qt::CaseInsensitive ) == 0;
+                          } ) ) {
+            return false;
+        }
+
+        QCoreApplication::addLibraryPath( normalizedPath );
+        writeLogLine( QStringLiteral( "plugin" ),
+                      QStringLiteral( "Qt library search path augmented with '%1'" )
+                          .arg( QDir::toNativeSeparators( normalizedPath ) ) );
+        return true;
+    };
+
+    addLibraryPath( platformPath );
+    addLibraryPath( pluginDirectory() );
+
     added = true;
-    writeLogLine( QStringLiteral( "plugin" ),
-                  QStringLiteral( "Qt library search path augmented with '%1'" ).arg( nativePath ) );
 }
 
 PluginState& state()

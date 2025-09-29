@@ -90,28 +90,6 @@ if ($PluginType) {
     $newContent = Set-ManifestEntry -currentContent $newContent -entryName 'type' -entryValue $PluginType
 }
 
-if ($PluginFile) {
-    $filePattern = '^(file=).*$'
-    & $ensureEntry $filePattern 'file'
-    $newContent = [System.Text.RegularExpressions.Regex]::Replace(
-        $newContent,
-        $filePattern,
-        "`$1$PluginFile",
-        $options
-    )
-}
-
-if ($PluginType) {
-    $typePattern = '^(type=).*$'
-    & $ensureEntry $typePattern 'type'
-    $newContent = [System.Text.RegularExpressions.Regex]::Replace(
-        $newContent,
-        $typePattern,
-        "`$1$PluginType",
-        $options
-    )
-}
-
 if (-not $newContent.EndsWith("`n")) {
     $newContent += "`n"
 }

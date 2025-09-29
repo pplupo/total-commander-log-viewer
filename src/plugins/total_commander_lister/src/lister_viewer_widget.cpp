@@ -1,9 +1,12 @@
 #include "lister_viewer_widget.h"
 
 #include <QApplication>
-#include <QPointer>
+#include <QDir>
 #include <QMetaObject>
+#include <QPointer>
 #include <QVBoxLayout>
+
+#include <exception>
 
 #include "crawlerwidget.h"
 #include "quickfindmux.h"
@@ -83,6 +86,9 @@ bool ListerViewerWidget::attachCrawler( const QString& filePath )
 {
     detachCrawler();
 
+    qInfo().noquote().nospace() << "[lister] attaching crawler to '"
+                                << QDir::toNativeSeparators( filePath ) << "'";
+
     try {
         ViewInterface* view = session_->open( filePath, [this]() -> ViewInterface* {
             auto* widget = new CrawlerWidget( crawlerContainer_ );
@@ -96,9 +102,22 @@ bool ListerViewerWidget::attachCrawler( const QString& filePath )
         currentFile_ = filePath;
 
         hookCrawlerSignals( currentCrawler_ );
+        qInfo().noquote().nospace() << "[lister] crawler ready for '"
+                                    << QDir::toNativeSeparators( currentFile_ ) << "'";
         return true;
     }
+    catch ( const std::exception& ex ) {
+        qCritical().noquote().nospace()
+            << "[lister] failed to attach crawler to '"
+            << QDir::toNativeSeparators( filePath ) << "': " << ex.what();
+        currentCrawler_ = nullptr;
+        currentFile_.clear();
+        return false;
+    }
     catch ( ... ) {
+        qCritical().noquote().nospace()
+            << "[lister] failed to attach crawler to '"
+            << QDir::toNativeSeparators( filePath ) << "' due to unknown exception";
         currentCrawler_ = nullptr;
         currentFile_.clear();
         return false;
@@ -107,11 +126,13 @@ bool ListerViewerWidget::attachCrawler( const QString& filePath )
 
 bool ListerViewerWidget::loadFile( const QString& filePath )
 {
+    qInfo().noquote().nospace() << "[lister] loadFile '" << QDir::toNativeSeparators( filePath ) << "'";
     return attachCrawler( filePath );
 }
 
 bool ListerViewerWidget::loadNextFile( const QString& filePath )
 {
+    qInfo().noquote().nospace() << "[lister] loadNextFile '" << QDir::toNativeSeparators( filePath ) << "'";
     return attachCrawler( filePath );
 }
 
@@ -119,11 +140,14 @@ void ListerViewerWidget::detachCrawler()
 {
     if ( !currentCrawler_ ) {
         quickFindMux_->registerSelector( nullptr );
+        qInfo().noquote().nospace() << "[lister] detachCrawler with no active view";
         return;
     }
 
     quickFindMux_->registerSelector( nullptr );
 
+    qInfo().noquote().nospace() << "[lister] detaching crawler from '"
+                                << QDir::toNativeSeparators( currentFile_ ) << "'";
     crawlerLayout_->removeWidget( currentCrawler_ );
     session_->close( currentCrawler_ );
     currentCrawler_->deleteLater();
@@ -133,12 +157,14 @@ void ListerViewerWidget::detachCrawler()
 
 void ListerViewerWidget::closeFile()
 {
+    qInfo().noquote().nospace() << "[lister] closeFile";
     detachCrawler();
 }
 
 bool ListerViewerWidget::searchText( const QString& text, int searchParameters )
 {
     if ( !currentCrawler_ ) {
+        qWarning().noquote().nospace() << "[lister] searchText ignored - no active crawler";
         return false;
     }
 
@@ -160,6 +186,8 @@ bool ListerViewerWidget::searchText( const QString& text, int searchParameters )
         quickFindMux_->searchNext();
     }
 
+    qInfo().noquote().nospace() << "[lister] searchText pattern='" << text << "' params=0x"
+                                << QString::number( searchParameters, 16 );
     return true;
 }
 
@@ -168,6 +196,8 @@ int ListerViewerWidget::sendCommand( int command, int parameter )
     Q_UNUSED( parameter );
 
     if ( !currentCrawler_ ) {
+        qWarning().noquote().nospace() << "[lister] sendCommand " << command
+                                       << " ignored - no active crawler";
         return kResultError;
     }
 
@@ -187,9 +217,11 @@ int ListerViewerWidget::sendCommand( int command, int parameter )
         currentCrawler_->reload();
         return kResultOk;
     case kCommandGetCapabilities:
+        qInfo().noquote().nospace() << "[lister] sendCommand capabilities requested";
         return kCapabilitySupportsTextSearch | kCapabilityHandlesMultipleFiles
                | kCapabilitySupportsSelectAll | kCapabilitySupportsCopy;
     default:
+        qInfo().noquote().nospace() << "[lister] sendCommand " << command << " not implemented";
         break;
     }
 

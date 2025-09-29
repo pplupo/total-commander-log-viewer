@@ -1,6 +1,7 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <exception>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -14,6 +15,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QIODevice>
+#include <QLibraryInfo>
 #include <QLatin1Char>
 #include <QLatin1String>
 #include <QString>
@@ -33,8 +35,11 @@ namespace {
 struct PluginState {
     std::unique_ptr<QApplication> app;
     std::unordered_map<HWND, std::unique_ptr<ListerViewerWidget>> viewers;
-    std::mutex mutex;
+    std::mutex viewersMutex;
+    std::mutex initMutex;
     bool settingsInitialized = false;
+    bool initializationFailed = false;
+    QString initializationError;
 };
 
 QFile& logFile()
@@ -133,6 +138,9 @@ void initializeLogging()
 
     const QString logPath = resolveLogPath();
     if ( logPath.isEmpty() ) {
+#ifdef Q_OS_WIN
+        OutputDebugStringW( L"[klogg_lister] Failed to resolve log path. Logging disabled.\n" );
+#endif
         return;
     }
 
@@ -145,11 +153,23 @@ void initializeLogging()
     auto& file = logFile();
     file.setFileName( logPath );
     if ( !file.open( QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text ) ) {
+#ifdef Q_OS_WIN
+        const auto message = QStringLiteral( "[klogg_lister] Failed to open log file '%1'." )
+                                 .arg( QDir::toNativeSeparators( logPath ) );
+        OutputDebugStringW( reinterpret_cast<LPCWSTR>( message.utf16() ) );
+#endif
         return;
     }
 
     writeLogLine( QStringLiteral( "plugin" ),
                   QStringLiteral( "logging initialized at %1" ).arg( QDir::toNativeSeparators( logPath ) ) );
+
+    const QString environmentPath = qEnvironmentVariable( "KLOGG_LISTER_LOG" ).trimmed();
+    if ( !environmentPath.isEmpty() ) {
+        writeLogLine( QStringLiteral( "plugin" ),
+                      QStringLiteral( "log path overridden by KLOGG_LISTER_LOG='%1'" )
+                          .arg( QDir::toNativeSeparators( environmentPath ) ) );
+    }
 
     previousMessageHandler() = qInstallMessageHandler( qtLogHandler );
 }
@@ -286,19 +306,74 @@ void processQtEvents()
     }
 }
 
-void ensureQtApplication()
+bool ensureQtApplication( QString* failureReason = nullptr )
 {
     initializeLogging();
+
+    auto& st = state();
+    std::lock_guard<std::mutex> initLock( st.initMutex );
+
+    auto setFailure = [&]( const QString& message ) {
+        st.initializationFailed = true;
+        st.initializationError = message;
+        writeLogLine( QStringLiteral( "plugin" ), message );
+        if ( failureReason ) {
+            *failureReason = message;
+        }
+    };
+
+    if ( st.initializationFailed ) {
+        if ( failureReason ) {
+            *failureReason = st.initializationError;
+        }
+        writeLogLine( QStringLiteral( "plugin" ),
+                      QStringLiteral( "Qt initialization skipped after previous failure: %1" )
+                          .arg( st.initializationError ) );
+        return false;
+    }
+
     writeLogLine( QStringLiteral( "plugin" ), QStringLiteral( "ensuring Qt application" ) );
 
     const QString platformPath = ensureQtPlatformPluginPath();
-    auto& st = state();
+
     if ( !QCoreApplication::instance() ) {
+        if ( platformPath.isEmpty() ) {
+            setFailure( QStringLiteral( "Qt platform plugin directory not found. Aborting Qt initialization." ) );
+            return false;
+        }
+
         int argc = 0;
         static char appName[] = "klogg_lister";
         static char* argv[] = { appName, nullptr };
-        st.app = std::make_unique<QApplication>( argc, argv );
+
+        try {
+            st.app = std::make_unique<QApplication>( argc, argv );
+        }
+        catch ( const std::exception& ex ) {
+            setFailure( QStringLiteral( "QApplication construction failed: %1" )
+                            .arg( QString::fromUtf8( ex.what() ) ) );
+            return false;
+        }
+        catch ( ... ) {
+            setFailure( QStringLiteral( "QApplication construction failed with an unknown exception" ) );
+            return false;
+        }
+
+        if ( !st.app ) {
+            setFailure( QStringLiteral( "Failed to allocate QApplication instance" ) );
+            return false;
+        }
+
+        QApplication::setQuitOnLastWindowClosed( false );
+
         writeLogLine( QStringLiteral( "plugin" ), QStringLiteral( "QApplication created" ) );
+        writeLogLine( QStringLiteral( "plugin" ),
+                      QStringLiteral( "Qt runtime version %1 (library %2)" )
+                          .arg( QString::fromLatin1( qVersion() ),
+                                QLibraryInfo::version().toString() ) );
+    }
+    else {
+        writeLogLine( QStringLiteral( "plugin" ), QStringLiteral( "reusing existing QApplication" ) );
     }
 
     ensureQtPlatformLibraryPath( platformPath );
@@ -311,6 +386,12 @@ void ensureQtApplication()
         Configuration::getSynced();
         writeLogLine( QStringLiteral( "plugin" ), QStringLiteral( "settings initialized" ) );
     }
+
+    if ( failureReason ) {
+        failureReason->clear();
+    }
+
+    return true;
 }
 
 QString toQString( const char* path )
@@ -323,12 +404,31 @@ QString toQString( const wchar_t* path )
     return QString::fromWCharArray( path ? path : L"" );
 }
 
+QString formatWindowHandle( HWND hwnd )
+{
+    return QStringLiteral( "0x%1" ).arg( quintptr( hwnd ), 0, 16, QLatin1Char( '0' ) );
+}
+
+QString formatShowFlags( int showFlags )
+{
+    return QStringLiteral( "0x%1" ).arg( showFlags, 0, 16, QLatin1Char( '0' ) );
+}
+
 HWND createViewerWindow( HWND parent, const QString& filePath, int showFlags )
 {
-    ensureQtApplication();
+    QString failureReason;
+    if ( !ensureQtApplication( &failureReason ) ) {
+        writeLogLine( QStringLiteral( "plugin" ),
+                      QStringLiteral( "createViewerWindow aborted: %1" )
+                          .arg( failureReason.isEmpty() ? QStringLiteral( "Qt initialization failed" )
+                                                       : failureReason ) );
+        return nullptr;
+    }
 
     writeLogLine( QStringLiteral( "plugin" ),
-                  QStringLiteral( "creating viewer window for '%1'" ).arg( QDir::toNativeSeparators( filePath ) ) );
+                  QStringLiteral( "creating viewer window for '%1' (parent=%2, flags=%3)" )
+                      .arg( QDir::toNativeSeparators( filePath ), formatWindowHandle( parent ),
+                            formatShowFlags( showFlags ) ) );
 
     auto viewer = std::make_unique<ListerViewerWidget>();
     viewer->setAttribute( Qt::WA_NativeWindow );
@@ -347,22 +447,30 @@ HWND createViewerWindow( HWND parent, const QString& filePath, int showFlags )
     SetWindowLongPtr( hwnd, GWL_STYLE, WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_VISIBLE );
     ShowWindow( hwnd, SW_SHOW );
 
+    writeLogLine( QStringLiteral( "plugin" ),
+                  QStringLiteral( "viewer window  %1 created for '%2'" )
+                      .arg( formatWindowHandle( hwnd ), QDir::toNativeSeparators( filePath ) ) );
+
     auto& st = state();
     {
-        std::lock_guard<std::mutex> lock( st.mutex );
+        std::lock_guard<std::mutex> lock( st.viewersMutex );
         st.viewers.emplace( hwnd, std::move( viewer ) );
     }
 
     processQtEvents();
+    writeLogLine( QStringLiteral( "plugin" ),
+                  QStringLiteral( "viewer window %1 initialized" ).arg( formatWindowHandle( hwnd ) ) );
     return hwnd;
 }
 
 ListerViewerWidget* findViewer( HWND hwnd )
 {
     auto& st = state();
-    std::lock_guard<std::mutex> lock( st.mutex );
+    std::lock_guard<std::mutex> lock( st.viewersMutex );
     auto it = st.viewers.find( hwnd );
     if ( it == st.viewers.end() ) {
+        writeLogLine( QStringLiteral( "plugin" ),
+                      QStringLiteral( "requested window %1 not found" ).arg( formatWindowHandle( hwnd ) ) );
         return nullptr;
     }
 
@@ -371,15 +479,34 @@ ListerViewerWidget* findViewer( HWND hwnd )
 
 int loadNextFile( HWND hwnd, const QString& filePath, int showFlags )
 {
-    ensureQtApplication();
+    QString failureReason;
+    if ( !ensureQtApplication( &failureReason ) ) {
+        writeLogLine( QStringLiteral( "plugin" ),
+                      QStringLiteral( "loadNextFile aborted: %1" )
+                          .arg( failureReason.isEmpty() ? QStringLiteral( "Qt initialization failed" )
+                                                       : failureReason ) );
+        return kResultError;
+    }
+
+    writeLogLine( QStringLiteral( "plugin" ),
+                  QStringLiteral( "loading next file '%1' into window %2 (flags=%3)" )
+                      .arg( QDir::toNativeSeparators( filePath ), formatWindowHandle( hwnd ),
+                            formatShowFlags( showFlags ) ) );
 
     if ( auto* viewer = findViewer( hwnd ) ) {
         viewer->applyShowFlags( showFlags );
         const bool ok = viewer->loadNextFile( filePath );
         processQtEvents();
+        writeLogLine( QStringLiteral( "plugin" ),
+                      QStringLiteral( "load next file %1 for window %2" )
+                          .arg( ok ? QStringLiteral( "succeeded" ) : QStringLiteral( "failed" ),
+                                formatWindowHandle( hwnd ) ) );
         return ok ? kResultOk : kResultError;
     }
 
+    writeLogLine( QStringLiteral( "plugin" ),
+                  QStringLiteral( "cannot load next file into unknown window %1" )
+                      .arg( formatWindowHandle( hwnd ) ) );
     return kResultError;
 }
 
@@ -388,9 +515,12 @@ int closeViewer( HWND hwnd )
     auto& st = state();
     std::unique_ptr<ListerViewerWidget> widget;
     {
-        std::lock_guard<std::mutex> lock( st.mutex );
+        std::lock_guard<std::mutex> lock( st.viewersMutex );
         auto it = st.viewers.find( hwnd );
         if ( it == st.viewers.end() ) {
+            writeLogLine( QStringLiteral( "plugin" ),
+                          QStringLiteral( "closeViewer requested for unknown window %1" )
+                              .arg( formatWindowHandle( hwnd ) ) );
             return kResultError;
         }
         widget = std::move( it->second );
@@ -400,6 +530,8 @@ int closeViewer( HWND hwnd )
     if ( widget ) {
         widget->closeFile();
         delete widget.release();
+        writeLogLine( QStringLiteral( "plugin" ),
+                      QStringLiteral( "viewer window %1 closed" ).arg( formatWindowHandle( hwnd ) ) );
     }
 
     processQtEvents();
@@ -408,28 +540,85 @@ int closeViewer( HWND hwnd )
 
 int searchText( HWND hwnd, const QString& text, int parameters )
 {
-    ensureQtApplication();
+    QString failureReason;
+    if ( !ensureQtApplication( &failureReason ) ) {
+        writeLogLine( QStringLiteral( "plugin" ),
+                      QStringLiteral( "searchText aborted: %1" )
+                          .arg( failureReason.isEmpty() ? QStringLiteral( "Qt initialization failed" )
+                                                       : failureReason ) );
+        return kResultError;
+    }
+
+    writeLogLine( QStringLiteral( "plugin" ),
+                  QStringLiteral( "search request on window %1 text='%2' params=0x%3" )
+                      .arg( formatWindowHandle( hwnd ), text,
+                            QString::number( parameters, 16 ) ) );
 
     if ( auto* viewer = findViewer( hwnd ) ) {
         const bool ok = viewer->searchText( text, parameters );
         processQtEvents();
+        writeLogLine( QStringLiteral( "plugin" ),
+                      QStringLiteral( "search request on window %1 %2" )
+                          .arg( formatWindowHandle( hwnd ),
+                                ok ? QStringLiteral( "succeeded" ) : QStringLiteral( "failed" ) ) );
         return ok ? kResultOk : kResultError;
     }
 
+    writeLogLine( QStringLiteral( "plugin" ),
+                  QStringLiteral( "cannot process search for unknown window %1" )
+                      .arg( formatWindowHandle( hwnd ) ) );
     return kResultError;
 }
 
 int sendCommand( HWND hwnd, int command, int parameter )
 {
-    ensureQtApplication();
+    QString failureReason;
+    if ( !ensureQtApplication( &failureReason ) ) {
+        writeLogLine( QStringLiteral( "plugin" ),
+                      QStringLiteral( "sendCommand aborted: %1" )
+                          .arg( failureReason.isEmpty() ? QStringLiteral( "Qt initialization failed" )
+                                                       : failureReason ) );
+        return kResultError;
+    }
+
+    writeLogLine( QStringLiteral( "plugin" ),
+                  QStringLiteral( "sendCommand window=%1 command=%2 parameter=%3" )
+                      .arg( formatWindowHandle( hwnd ), QString::number( command ),
+                            QString::number( parameter ) ) );
 
     if ( auto* viewer = findViewer( hwnd ) ) {
         const int result = viewer->sendCommand( command, parameter );
         processQtEvents();
+        writeLogLine( QStringLiteral( "plugin" ),
+                      QStringLiteral( "command %1 on window %2 returned %3" )
+                          .arg( QString::number( command ), formatWindowHandle( hwnd ),
+                                QString::number( result ) ) );
         return result;
     }
 
+    writeLogLine( QStringLiteral( "plugin" ),
+                  QStringLiteral( "sendCommand target window %1 not found" )
+                      .arg( formatWindowHandle( hwnd ) ) );
     return kResultError;
+}
+
+template <typename Func, typename Failure>
+auto invokeSafely( const char* context, Func&& func, Failure&& failure )
+{
+    try {
+        return func();
+    }
+    catch ( const std::exception& ex ) {
+        writeLogLine( QStringLiteral( "plugin" ),
+                      QStringLiteral( "%1 threw exception: %2" )
+                          .arg( QString::fromLatin1( context ), QString::fromUtf8( ex.what() ) ) );
+    }
+    catch ( ... ) {
+        writeLogLine( QStringLiteral( "plugin" ),
+                      QStringLiteral( "%1 threw unknown exception" ).arg( QString::fromLatin1( context ) ) );
+    }
+
+    return failure;
 }
 
 } // namespace
@@ -440,53 +629,126 @@ extern "C" {
 
 __declspec( dllexport ) HWND __stdcall ListLoad( HWND parentWin, char* fileToLoad, int showFlags )
 {
-    return klogg::tc::lister::createViewerWindow( parentWin,
-                                                  klogg::tc::lister::toQString( fileToLoad ), showFlags );
+    using namespace klogg::tc::lister;
+    initializeLogging();
+
+    const QString path = toQString( fileToLoad );
+    writeLogLine( QStringLiteral( "plugin" ),
+                  QStringLiteral( "ListLoad called parent=%1 file='%2' flags=%3" )
+                      .arg( formatWindowHandle( parentWin ), QDir::toNativeSeparators( path ),
+                            formatShowFlags( showFlags ) ) );
+
+    return invokeSafely( "ListLoad", [ & ]() { return createViewerWindow( parentWin, path, showFlags ); },
+                         static_cast<HWND>( nullptr ) );
 }
 
 __declspec( dllexport ) HWND __stdcall ListLoadW( HWND parentWin, const wchar_t* fileToLoad, int showFlags )
 {
-    return klogg::tc::lister::createViewerWindow( parentWin,
-                                                  klogg::tc::lister::toQString( fileToLoad ), showFlags );
+    using namespace klogg::tc::lister;
+    initializeLogging();
+
+    const QString path = toQString( fileToLoad );
+    writeLogLine( QStringLiteral( "plugin" ),
+                  QStringLiteral( "ListLoadW called parent=%1 file='%2' flags=%3" )
+                      .arg( formatWindowHandle( parentWin ), QDir::toNativeSeparators( path ),
+                            formatShowFlags( showFlags ) ) );
+
+    return invokeSafely( "ListLoadW", [ & ]() { return createViewerWindow( parentWin, path, showFlags ); },
+                         static_cast<HWND>( nullptr ) );
 }
 
 __declspec( dllexport ) int __stdcall ListLoadNext( HWND parentWin, HWND pluginWin, char* fileToLoad,
-                                                  int showFlags )
+                                                   int showFlags )
 {
     Q_UNUSED( parentWin );
-    return klogg::tc::lister::loadNextFile( pluginWin, klogg::tc::lister::toQString( fileToLoad ),
-                                            showFlags );
+    using namespace klogg::tc::lister;
+    initializeLogging();
+
+    const QString path = toQString( fileToLoad );
+    writeLogLine( QStringLiteral( "plugin" ),
+                  QStringLiteral( "ListLoadNext called window=%1 file='%2' flags=%3" )
+                      .arg( formatWindowHandle( pluginWin ), QDir::toNativeSeparators( path ),
+                            formatShowFlags( showFlags ) ) );
+
+    return invokeSafely( "ListLoadNext",
+                         [ & ]() { return loadNextFile( pluginWin, path, showFlags ); }, kResultError );
 }
 
 __declspec( dllexport ) int __stdcall ListLoadNextW( HWND parentWin, HWND pluginWin, const wchar_t* fileToLoad,
-                                                     int showFlags )
+                                                    int showFlags )
 {
     Q_UNUSED( parentWin );
-    return klogg::tc::lister::loadNextFile( pluginWin, klogg::tc::lister::toQString( fileToLoad ),
-                                            showFlags );
+    using namespace klogg::tc::lister;
+    initializeLogging();
+
+    const QString path = toQString( fileToLoad );
+    writeLogLine( QStringLiteral( "plugin" ),
+                  QStringLiteral( "ListLoadNextW called window=%1 file='%2' flags=%3" )
+                      .arg( formatWindowHandle( pluginWin ), QDir::toNativeSeparators( path ),
+                            formatShowFlags( showFlags ) ) );
+
+    return invokeSafely( "ListLoadNextW",
+                         [ & ]() { return loadNextFile( pluginWin, path, showFlags ); }, kResultError );
 }
 
 __declspec( dllexport ) void __stdcall ListCloseWindow( HWND listWin )
 {
-    klogg::tc::lister::closeViewer( listWin );
+    using namespace klogg::tc::lister;
+    initializeLogging();
+
+    writeLogLine( QStringLiteral( "plugin" ),
+                  QStringLiteral( "ListCloseWindow called for %1" ).arg( formatWindowHandle( listWin ) ) );
+
+    invokeSafely( "ListCloseWindow", [ & ]() {
+        closeViewer( listWin );
+        return 0;
+    },
+                 0 );
 }
 
 __declspec( dllexport ) int __stdcall ListSearchText( HWND listWin, char* searchString, int searchParameter )
 {
-    return klogg::tc::lister::searchText( listWin, klogg::tc::lister::toQString( searchString ),
-                                          searchParameter );
+    using namespace klogg::tc::lister;
+    initializeLogging();
+
+    const QString query = toQString( searchString );
+    writeLogLine( QStringLiteral( "plugin" ),
+                  QStringLiteral( "ListSearchText called window=%1 query='%2' params=0x%3" )
+                      .arg( formatWindowHandle( listWin ), query,
+                            QString::number( searchParameter, 16 ) ) );
+
+    return invokeSafely( "ListSearchText",
+                         [ & ]() { return searchText( listWin, query, searchParameter ); }, kResultError );
 }
 
 __declspec( dllexport ) int __stdcall ListSearchTextW( HWND listWin, const wchar_t* searchString,
-                                                       int searchParameter )
+                                                      int searchParameter )
 {
-    return klogg::tc::lister::searchText( listWin, klogg::tc::lister::toQString( searchString ),
-                                          searchParameter );
+    using namespace klogg::tc::lister;
+    initializeLogging();
+
+    const QString query = toQString( searchString );
+    writeLogLine( QStringLiteral( "plugin" ),
+                  QStringLiteral( "ListSearchTextW called window=%1 query='%2' params=0x%3" )
+                      .arg( formatWindowHandle( listWin ), query,
+                            QString::number( searchParameter, 16 ) ) );
+
+    return invokeSafely( "ListSearchTextW",
+                         [ & ]() { return searchText( listWin, query, searchParameter ); }, kResultError );
 }
 
 __declspec( dllexport ) int __stdcall ListSendCommand( HWND listWin, int command, int parameter )
 {
-    return klogg::tc::lister::sendCommand( listWin, command, parameter );
+    using namespace klogg::tc::lister;
+    initializeLogging();
+
+    writeLogLine( QStringLiteral( "plugin" ),
+                  QStringLiteral( "ListSendCommand called window=%1 command=%2 parameter=%3" )
+                      .arg( formatWindowHandle( listWin ), QString::number( command ),
+                            QString::number( parameter ) ) );
+
+    return invokeSafely( "ListSendCommand",
+                         [ & ]() { return sendCommand( listWin, command, parameter ); }, kResultError );
 }
 
 __declspec( dllexport ) int __stdcall ListNotificationReceived( HWND listWin, int message, WPARAM wParam,

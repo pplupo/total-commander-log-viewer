@@ -62,6 +62,14 @@ xcopy %QTDIR%\bin\%KLOGG_QT%Concurrent.dll %KLOGG_WORKSPACE%\release\ /y
 xcopy %QTDIR%\bin\%KLOGG_QT%Xml.dll %KLOGG_WORKSPACE%\release\ /y
 xcopy %QTDIR%\bin\%KLOGG_QT%Core5Compat.dll %KLOGG_WORKSPACE%\release\ /y
 
+for %%F in (d3dcompiler_47.dll libEGL.dll libGLESv2.dll opengl32sw.dll) do (
+    if exist "%QTDIR%\bin\%%F" (
+        xcopy "%QTDIR%\bin\%%F" %KLOGG_WORKSPACE%\release\ /y
+    ) else (
+        echo "Warning: %QTDIR%\bin\%%F not found for main runtime"
+    )
+)
+
 echo "Staging Total Commander lister plugin runtime..."
 set "KLOGG_TOTALCMD_ROOT=%KLOGG_WORKSPACE%\release\totalcmd"
 md %KLOGG_TOTALCMD_ROOT%
@@ -96,6 +104,14 @@ xcopy %QTDIR%\bin\%KLOGG_QT%Core5Compat.dll %KLOGG_TOTALCMD_ROOT%\ /y
 
 if exist %KLOGG_WORKSPACE%\release\tbb12.dll (
     xcopy %KLOGG_WORKSPACE%\release\tbb12.dll %KLOGG_TOTALCMD_ROOT%\ /y >nul
+)
+
+for %%F in (d3dcompiler_47.dll libEGL.dll libGLESv2.dll opengl32sw.dll) do (
+    if exist "%QTDIR%\bin\%%F" (
+        xcopy "%QTDIR%\bin\%%F" %KLOGG_TOTALCMD_ROOT%\ /y
+    ) else (
+        echo "Warning: %QTDIR%\bin\%%F not found for lister plugin"
+    )
 )
 
 xcopy %QTDIR%\plugins\platforms\qwindows.dll %KLOGG_TOTALCMD_ROOT%\platforms\ /y

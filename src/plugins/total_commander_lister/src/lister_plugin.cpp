@@ -5,6 +5,7 @@
 #include <memory>
 #include <mutex>
 #include <unordered_map>
+#include <cstring>
 
 #include <QApplication>
 #include <QByteArray>
@@ -46,6 +47,68 @@ QFile& logFile()
 {
     static QFile file;
     return file;
+}
+
+const QStringList& supportedExtensions()
+{
+    static const QStringList extensions = { QStringLiteral( "LOG" ),  QStringLiteral( "LOGX" ),
+                                            QStringLiteral( "LOGS" ), QStringLiteral( "CEF" ),
+                                            QStringLiteral( "CLF" ),  QStringLiteral( "ELF" ),
+                                            QStringLiteral( "W3C" ),  QStringLiteral( "OUT" ),
+                                            QStringLiteral( "ERR" ) };
+    return extensions;
+}
+
+const QString& detectString()
+{
+    static const QString detect = []() {
+        QStringList parts;
+        parts.reserve( supportedExtensions().size() );
+        for ( const auto& extension : supportedExtensions() ) {
+            parts << QStringLiteral( "EXT=\"%1\"" ).arg( extension );
+        }
+        return parts.join( QLatin1String( " | " ) );
+    }();
+
+    return detect;
+}
+
+int populateDetectString( char* buffer, int maxLength )
+{
+    if ( buffer == nullptr ) {
+        writeLogLine( QStringLiteral( "plugin" ),
+                      QStringLiteral( "ListGetDetectString aborted: null buffer" ) );
+        return kResultError;
+    }
+
+    if ( maxLength <= 0 ) {
+        writeLogLine( QStringLiteral( "plugin" ),
+                      QStringLiteral( "ListGetDetectString aborted: invalid max length %1" )
+                          .arg( QString::number( maxLength ) ) );
+        return kResultError;
+    }
+
+    const QByteArray asciiDetect = detectString().toUtf8();
+    const int available = maxLength - 1;
+    const int copyLength = std::min( available, asciiDetect.size() );
+
+    if ( copyLength > 0 ) {
+        std::memcpy( buffer, asciiDetect.constData(), static_cast<size_t>( copyLength ) );
+    }
+
+    buffer[ copyLength ] = '\0';
+
+    if ( copyLength < asciiDetect.size() ) {
+        writeLogLine( QStringLiteral( "plugin" ),
+                      QStringLiteral( "ListGetDetectString truncated to '%1'" )
+                          .arg( QString::fromUtf8( asciiDetect.left( copyLength ) ) ) );
+        return kResultError;
+    }
+
+    writeLogLine( QStringLiteral( "plugin" ),
+                  QStringLiteral( "ListGetDetectString returned '%1'" )
+                      .arg( QString::fromUtf8( asciiDetect ) ) );
+    return kResultOk;
 }
 
 std::mutex& logMutex()
@@ -759,6 +822,19 @@ __declspec( dllexport ) int __stdcall ListNotificationReceived( HWND listWin, in
     Q_UNUSED( wParam );
     Q_UNUSED( lParam );
     return klogg::tc::lister::kResultNotImplemented;
+}
+
+__declspec( dllexport ) int __stdcall ListGetDetectString( char* detectString, int maxLen )
+{
+    using namespace klogg::tc::lister;
+    initializeLogging();
+
+    writeLogLine( QStringLiteral( "plugin" ),
+                  QStringLiteral( "ListGetDetectString called maxLen=%1" )
+                      .arg( QString::number( maxLen ) ) );
+
+    return invokeSafely( "ListGetDetectString",
+                         [ & ]() { return populateDetectString( detectString, maxLen ); }, kResultError );
 }
 
 } // extern "C"

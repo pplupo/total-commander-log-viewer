@@ -49,6 +49,8 @@ QFile& logFile()
     return file;
 }
 
+void writeLogLine( const QString& category, const QString& message );
+
 const QStringList& supportedExtensions()
 {
     static const QStringList extensions = { QStringLiteral( "LOG" ),  QStringLiteral( "LOGX" ),
@@ -90,7 +92,8 @@ int populateDetectString( char* buffer, int maxLength )
 
     const QByteArray asciiDetect = detectString().toUtf8();
     const int available = maxLength - 1;
-    const int copyLength = std::min( available, asciiDetect.size() );
+    const int copyLength = static_cast<int>( std::min<qsizetype>(
+        static_cast<qsizetype>( available ), asciiDetect.size() ) );
 
     if ( copyLength > 0 ) {
         std::memcpy( buffer, asciiDetect.constData(), static_cast<size_t>( copyLength ) );

@@ -27,6 +27,7 @@
 #include "configuration.h"
 #include "lister_plugin_api.h"
 #include "lister_viewer_widget.h"
+#include "logging/include/logger.h"
 #include "persistentinfo.h"
 
 namespace klogg::tc::lister {
@@ -200,6 +201,67 @@ void initializeLogging()
     }
     initialized = true;
 
+    auto logLevelName = []( logging::LogLevel level ) {
+        switch ( level ) {
+        case logging::LogLevel::None:
+            return QStringLiteral( "none" );
+        case logging::LogLevel::Fatal:
+            return QStringLiteral( "fatal" );
+        case logging::LogLevel::Error:
+            return QStringLiteral( "error" );
+        case logging::LogLevel::Warning:
+            return QStringLiteral( "warning" );
+        case logging::LogLevel::Info:
+            return QStringLiteral( "info" );
+        case logging::LogLevel::Debug:
+            return QStringLiteral( "debug" );
+        }
+
+        return QStringLiteral( "info" );
+    };
+
+    QStringList pendingLogMessages;
+    const QString logLevelOverride = qEnvironmentVariable( "KLOGG_LISTER_LOG_LEVEL" ).trimmed();
+    logging::LogLevel sharedLogLevel = logging::LogLevel::Info;
+
+    if ( !logLevelOverride.isEmpty() ) {
+        const QString normalizedOverride = logLevelOverride.toLower();
+        if ( normalizedOverride == QLatin1String( "none" ) ) {
+            sharedLogLevel = logging::LogLevel::None;
+        }
+        else if ( normalizedOverride == QLatin1String( "fatal" ) ) {
+            sharedLogLevel = logging::LogLevel::Fatal;
+        }
+        else if ( normalizedOverride == QLatin1String( "error" ) ) {
+            sharedLogLevel = logging::LogLevel::Error;
+        }
+        else if ( normalizedOverride == QLatin1String( "warning" ) ) {
+            sharedLogLevel = logging::LogLevel::Warning;
+        }
+        else if ( normalizedOverride == QLatin1String( "info" ) ) {
+            sharedLogLevel = logging::LogLevel::Info;
+        }
+        else if ( normalizedOverride == QLatin1String( "debug" ) ) {
+            sharedLogLevel = logging::LogLevel::Debug;
+        }
+        else {
+            pendingLogMessages << QStringLiteral( "Unrecognized KLOGG_LISTER_LOG_LEVEL='%1', defaulting to '%2'." )
+                                      .arg( logLevelOverride, logLevelName( sharedLogLevel ) );
+        }
+    }
+
+    const bool sharedLoggingEnabled = sharedLogLevel != logging::LogLevel::None;
+    logging::enableLogging( sharedLoggingEnabled, sharedLogLevel );
+
+    if ( sharedLoggingEnabled ) {
+        const QString source = logLevelOverride.isEmpty() ? QString() : QStringLiteral( " (from KLOGG_LISTER_LOG_LEVEL)" );
+        pendingLogMessages << QStringLiteral( "Shared logging backend enabled at '%1' level%2." )
+                                  .arg( logLevelName( sharedLogLevel ), source );
+    }
+    else {
+        pendingLogMessages << QStringLiteral( "Shared logging backend disabled by KLOGG_LISTER_LOG_LEVEL." );
+    }
+
     qputenv( "QT_DEBUG_PLUGINS", QByteArrayLiteral( "1" ) );
 
     const QString logPath = resolveLogPath();
@@ -235,6 +297,14 @@ void initializeLogging()
         writeLogLine( QStringLiteral( "plugin" ),
                       QStringLiteral( "log path overridden by KLOGG_LISTER_LOG='%1'" )
                           .arg( QDir::toNativeSeparators( environmentPath ) ) );
+    }
+
+    for ( const auto& message : pendingLogMessages ) {
+        if ( message.isEmpty() ) {
+            continue;
+        }
+
+        writeLogLine( QStringLiteral( "plugin" ), message );
     }
 
     previousMessageHandler() = qInstallMessageHandler( qtLogHandler );

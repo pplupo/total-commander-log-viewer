@@ -27,7 +27,7 @@
 #include "configuration.h"
 #include "lister_plugin_api.h"
 #include "lister_viewer_widget.h"
-#include "logging/include/logger.h"
+#include "logger.h"
 #include "persistentinfo.h"
 
 namespace klogg::tc::lister {

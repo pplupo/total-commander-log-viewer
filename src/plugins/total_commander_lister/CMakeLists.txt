@@ -34,6 +34,7 @@ target_link_libraries(klogg_lister_plugin
     PRIVATE
         project_options
         project_warnings
+        klogg_logging
         klogg_ui
         klogg_settings
         Qt${QT_VERSION_MAJOR}::Widgets

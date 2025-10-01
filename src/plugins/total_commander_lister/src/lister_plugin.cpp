@@ -29,6 +29,7 @@
 #include "lister_viewer_widget.h"
 #include "logger.h"
 #include "persistentinfo.h"
+#include "highlighterset.h"
 
 namespace klogg::tc::lister {
 
@@ -520,6 +521,7 @@ bool ensureQtApplication( QString* failureReason = nullptr )
                                                  QStringLiteral( "klogg_lister_session" ) );
         PersistentInfo::overridePortableMode( true );
         Configuration::getSynced();
+        HighlighterSetCollection::getSynced();
         writeLogLine( QStringLiteral( "plugin" ), QStringLiteral( "settings initialized" ) );
     }
 

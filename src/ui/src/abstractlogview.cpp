@@ -136,6 +136,11 @@ inline int countLeadingZeroes( uint64_t value )
 
 namespace {
 
+constexpr int SeparatorWidth = 1;
+constexpr int BulletAreaWidth = 11;
+constexpr int ContentMarginWidth = 1;
+constexpr int LineNumberPadding = 3;
+
 int mapPullToFollowLength( int length );
 
 int intLog2( uint64_t x )
@@ -1629,6 +1634,8 @@ void AbstractLogView::updateDisplaySize()
     charHeight_ = std::max( pixmapFontMetrics_.height(), 1 );
     charWidth_ = textWidth( pixmapFontMetrics_, QString( "m" ) );
 
+    leftMarginPx_ = calculateLeftMarginPx();
+
     // Update the scroll bars
     updateScrollBars();
     verticalScrollBar()->setPageStep( static_cast<int>( getNbVisibleLines().get() ) );
@@ -1719,6 +1726,7 @@ void AbstractLogView::jumpToLine( LineNumber line )
 void AbstractLogView::setLineNumbersVisible( bool lineNumbersVisible )
 {
     lineNumbersVisible_ = lineNumbersVisible;
+    leftMarginPx_ = calculateLeftMarginPx();
 }
 
 void AbstractLogView::forceRefresh()
@@ -1747,11 +1755,29 @@ LinesCount AbstractLogView::getNbVisibleLines() const
         static_cast<LinesCount::UnderlyingType>( viewport()->height() / charHeight_ + 1 ) );
 }
 
+int AbstractLogView::calculateLeftMarginPx() const
+{
+    int contentStartPosX = BulletAreaWidth + SeparatorWidth;
+
+    if ( lineNumbersVisible_ ) {
+        const auto nbDigitsInLineNumber = countDigits( maxDisplayLineNumber().get() );
+        const auto charWidth = std::max( charWidth_, 1 );
+        const auto lineNumberWidth = charWidth * nbDigitsInLineNumber;
+        const auto lineNumberAreaWidth = 2 * LineNumberPadding + lineNumberWidth;
+        contentStartPosX += lineNumberAreaWidth;
+    }
+
+    return contentStartPosX + SeparatorWidth;
+}
+
 // Returns the number of columns visible in the viewport
 LineLength AbstractLogView::getNbVisibleCols() const
 {
     const auto scrollBarWidth = verticalScrollBar()->isVisible() ? verticalScrollBar()->width() : 0;
-    return LineLength{ ( viewport()->width() - leftMarginPx_ - scrollBarWidth ) / charWidth_ + 1 };
+    const auto leftMargin = calculateLeftMarginPx();
+    const auto charWidth = std::max( charWidth_, 1 );
+    const auto availableWidth = std::max( viewport()->width() - leftMargin - scrollBarWidth, 0 );
+    return LineLength{ availableWidth / charWidth + 1 };
 }
 
 // Converts the mouse x, y coordinates to the line number in the file
@@ -2224,11 +2250,6 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
     static const QBrush matchBulletBrush = QBrush( Qt::red );
     static const QBrush markBrush = QBrush( "dodgerblue" );
     static const QBrush markedMatchBrush = QBrush( "violet" );
-
-    static constexpr int SeparatorWidth = 1;
-    static constexpr int BulletAreaWidth = 11;
-    static constexpr int ContentMarginWidth = 1;
-    static constexpr int LineNumberPadding = 3;
 
     // First check the lines to be drawn are within range (might not be the case if
     // the file has just changed)

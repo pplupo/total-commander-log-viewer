@@ -1776,9 +1776,8 @@ LineLength AbstractLogView::getNbVisibleCols() const
     const auto viewportRect = viewport()->contentsRect();
     const auto leftMargin = calculateLeftMarginPx();
     const auto charWidth = std::max( charWidth_, 1 );
-    const auto contentRight = viewportRect.right() - ContentMarginWidth;
-    const auto availableWidth
-        = std::max( contentRight - leftMargin + 1, 0 );
+    const auto contentWidth = std::max( viewportRect.width() - ContentMarginWidth, 0 );
+    const auto availableWidth = std::max( contentWidth - leftMargin, 0 );
     const auto visibleColumns = ( availableWidth + charWidth - 1 ) / charWidth;
     return LineLength{ std::max( visibleColumns, 0 ) };
 }

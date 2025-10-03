@@ -1773,11 +1773,13 @@ int AbstractLogView::calculateLeftMarginPx() const
 // Returns the number of columns visible in the viewport
 LineLength AbstractLogView::getNbVisibleCols() const
 {
-    const auto scrollBarWidth = verticalScrollBar()->isVisible() ? verticalScrollBar()->width() : 0;
+    const auto viewportRect = viewport()->contentsRect();
     const auto leftMargin = calculateLeftMarginPx();
     const auto charWidth = std::max( charWidth_, 1 );
-    const auto availableWidth = std::max( viewport()->width() - leftMargin - scrollBarWidth, 0 );
-    return LineLength{ availableWidth / charWidth + 1 };
+    const auto contentWidth = std::max( viewportRect.width() - ContentMarginWidth, 0 );
+    const auto availableWidth = std::max( contentWidth - leftMargin, 0 );
+    const auto visibleColumns = ( availableWidth + charWidth - 1 ) / charWidth;
+    return LineLength{ std::max( visibleColumns, 0 ) };
 }
 
 // Converts the mouse x, y coordinates to the line number in the file

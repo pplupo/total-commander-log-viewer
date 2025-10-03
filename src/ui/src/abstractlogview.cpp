@@ -66,6 +66,7 @@
 #include <QGestureEvent>
 #include <QInputDialog>
 #include <QMenu>
+#include <QPaintDevice>
 #include <QPaintEvent>
 #include <QPainter>
 #include <QPalette>
@@ -204,8 +205,12 @@ std::unique_ptr<QPainter> pixmapPainter( QPaintDevice* paintDevice, const QFont&
     return painter;
 }
 
-QFontMetrics pixmapFontMetrics( const QFont& font )
+QFontMetrics pixmapFontMetrics( const QFont& font, QPaintDevice* device )
 {
+    if ( device != nullptr ) {
+        return QFontMetrics( font, device );
+    }
+
     QPixmap pm{ 1, 1 };
     auto devicePainter = pixmapPainter( &pm, font );
     return devicePainter->fontMetrics();
@@ -407,7 +412,7 @@ AbstractLogView::AbstractLogView( const AbstractLogData* newLogData,
     , searchEnd_( newLogData->getNbLine().get() )
     , quickFindPattern_( quickFindPattern )
     , quickFind_( new QuickFind( *newLogData ) )
-    , pixmapFontMetrics_( this->font() )
+    , pixmapFontMetrics_( pixmapFontMetrics( this->font(), this ) )
 {
     setViewport( nullptr );
 
@@ -1623,13 +1628,15 @@ void AbstractLogView::updateData()
 void AbstractLogView::updateFont( const QFont& font )
 {
     setFont( font );
-    pixmapFontMetrics_ = pixmapFontMetrics( font );
+    pixmapFontMetrics_ = pixmapFontMetrics( font, viewport() != nullptr ? viewport() : this );
     updateDisplaySize();
     update();
 }
 
 void AbstractLogView::updateDisplaySize()
 {
+    pixmapFontMetrics_ = pixmapFontMetrics( font(), viewport() != nullptr ? viewport() : this );
+
     // Font is assumed to be mono-space (is restricted by options dialog)
     charHeight_ = std::max( pixmapFontMetrics_.height(), 1 );
     charWidth_ = textWidth( pixmapFontMetrics_, QString( "m" ) );
